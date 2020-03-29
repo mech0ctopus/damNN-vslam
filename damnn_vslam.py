@@ -64,8 +64,8 @@ def main(model_name, model, num_epochs, batch_size):
     return model
     
 if __name__=='__main__':
-    model=models.unet
-    model_name='unet'
+    model=models.parallel_unets
+    model_name='parallel_unets'
     model=main(model_name=model_name,model=model,
                num_epochs=2,batch_size=2)
     
