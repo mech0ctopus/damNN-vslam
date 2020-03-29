@@ -1,6 +1,6 @@
 # Kyle J. Cantrell, Craig D. Miller, and Brian Slagowski
 # kjcantrell@wpi.edu, cdmiller@wpi.edu, and bslagowski@wpi.edu
-# Deep Learning for Advanced Robot Perception
+# Advanced Robot Navigation
 #
 # Dense Accurate Map-building using Neural Networks
 
@@ -39,7 +39,7 @@ def main(model_name, model, num_epochs, batch_size):
     y_val_filelist=glob(y_val_folderpath+'*.png')
     
     model=model()
-    model.compile(loss='mean_squared_error',optimizer=Adam(lr=1e-5)) #,metrics=['mse']
+    model.compile(loss='mean_squared_error',optimizer=Adam(lr=1e-5)) 
 
     #Save best model weights checkpoint
     filepath=f"{model_name}_weights_best.hdf5"
