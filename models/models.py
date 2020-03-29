@@ -2,43 +2,42 @@
 """
 Final Models.
 """
-from tensorflow import split
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Concatenate, Dense, Dropout
+from tensorflow.keras.layers import Concatenate, Dense
 from tensorflow.keras.layers import Flatten, Input, Reshape
 import segmentation_models
 
 segmentation_models.set_framework('tf.keras')
 
-def unet():
+def unet(input_shape=(375,1242,3)):
     '''Define U-Net model.'''
     #Load unet with resnet34 backbone with no weights
     premodel = segmentation_models.Unet('resnet34', 
-                                        input_shape=(480, 640, 3), 
+                                        input_shape=input_shape, 
                                         encoder_weights=None,
                                         encoder_freeze=False)
     
     #Get final conv. output and skip sigmoid activation layer
     x=premodel.layers[-2].output 
-    reshape=Reshape((307200,))(x)
+    reshape=Reshape((input_shape[0]*input_shape[1],))(x)
     model = Model(inputs=premodel.input, outputs=reshape)
 
     return model
 
-def parallel_unets():
+def parallel_unets(input_shape=(375,1242,3)):
     '''Define Parallel U-Nets model.'''
     #Define input size
-    input_1=Input((480,640,3)) #Image at time=t
-    input_2=Input((480,640,3)) #Image at time=(t-1)
+    input_1=Input(input_shape) #Image at time=t
+    input_2=Input(input_shape) #Image at time=(t-1)
                                         
     #Load unet with resnet34 backbone with no weights
     unet_1 = segmentation_models.Unet('resnet34', 
-                                      input_shape=(480, 640, 3), 
+                                      input_shape=input_shape, 
                                       encoder_weights=None,
                                       encoder_freeze=False)
     unet_2 = segmentation_models.Unet('resnet34', 
-                                      input_shape=(480, 640, 3), 
+                                      input_shape=input_shape, 
                                       encoder_weights=None,
                                       encoder_freeze=False)
     
@@ -55,8 +54,8 @@ def parallel_unets():
     #Reduce outputs from U-Nets
     flatten=Flatten()(merged)
     #Add dense layers
-    dense1=Dense(256,activation='linear')(flatten)
-    final_output=Dense(480*640,activation='linear')(dense1)
+    dense1=Dense(16,activation='relu')(flatten)
+    final_output=Dense(input_shape[0]*input_shape[1],activation='linear')(dense1)
     
     #Define inputs and outputs    
     model = Model(inputs=[input_1,input_2], outputs=final_output)

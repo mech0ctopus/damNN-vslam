@@ -56,17 +56,20 @@ def depth_read(filename):
     image=Image.open(filename)
     depth_png = np.array(image, dtype=int)
 
-    if depth_png.shape==(480,640,3):
+    if depth_png.shape==(375,1242,3):
         depth_png=(depth_png[:,:,0]+depth_png[:,:,1]+depth_png[:,:,2])/3
     
+    #Convert to 8 bit
+    depth_png=depth_png/(2**8)
+    
     assert(np.max(depth_png) <= 255)
-    depth=depth_png.astype(np.float)
+    depth=depth_png.astype('int8') #np.float
  
     image.close()
 
     return depth
 
-def heatmap(image,save=False,name='heatmap',cmap='gray'):
+def heatmap(image,save=False,name='heatmap',cmap='gray',show=True):
     '''Plots heatmap of depth data from image or np.ndarray.'''
     if type(image)==np.ndarray:
         pic_array=image
@@ -76,6 +79,7 @@ def heatmap(image,save=False,name='heatmap',cmap='gray'):
         pic_array=np.array(pic)
     #Plot heatmap
     plt.imshow(pic_array, cmap=cmap, interpolation='nearest') #cmap=binary, plasma, gray
-    plt.show()
+    if show==True:
+        plt.show()
     if save==True:
         plt.imsave(name+'.png',pic_array, cmap=cmap)
