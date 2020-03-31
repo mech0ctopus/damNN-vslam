@@ -29,14 +29,14 @@ def main(model_name, model, num_epochs, batch_size):
     print(segmentation_models.framework())
     
     #Build list of training filenames
-    X_folderpath=r"images\training\X\\"
-    y_folderpath=r"images\training\y\colorized\\"
+    X_folderpath=r"images\train\X\\"
+    y_folderpath=r"images\train\y\colorized\\"
     X_filelist=glob(X_folderpath+'*.png')
     y_filelist=glob(y_folderpath+'*.png')
     
     #Build list of validation filenames
-    X_val_folderpath=r"images\testing\X\\"
-    y_val_folderpath=r"images\testing\y\colorized\\"
+    X_val_folderpath=r"images\test\X\\"
+    y_val_folderpath=r"images\test\y\colorized\\"
     X_val_filelist=glob(X_val_folderpath+'*.png')
     y_val_filelist=glob(y_val_folderpath+'*.png')
     
@@ -69,7 +69,7 @@ if __name__=='__main__':
     model=models.parallel_unets
     model_name='parallel_unets'
     model=main(model_name=model_name,model=model,
-               num_epochs=2,batch_size=2)
+               num_epochs=100,batch_size=2)
     show_test_image=True
     
     #Save model
@@ -81,23 +81,23 @@ if __name__=='__main__':
                           model_name=f'{model_name}_kitti_model',
                           save_weights=False)
     
-    if show_test_image==True:
-        image1_path=r"images\testing\X\c_depth_0.PNG"
+    if show_test_image:
+        image1_path=r"images\test\X\0000000080.PNG"
         #Read test image
         image1=rgb_read(image1_path) #640x480, 1242x375
-        image1=image1.reshape(1,375,1242,3)
+        image1=image1.reshape(1,192,640,3)
         image1=np.divide(image1,255).astype(np.float16)
 
-        image2_path=r"images\testing\X\c_depth_1.PNG"
+        image2_path=r"images\test\X\0000000079.PNG"
         #Read test image
         image2=rgb_read(image2_path) #640x480
-        image2=image2.reshape(1,375,1242,3)
+        image2=image2.reshape(1,192,640,3)
         image2=np.divide(image2,255).astype(np.float16)
         
         image_name=basename(image1_path).split('.')[0]
         #Predict depth
         y_est=model.predict([image1,image2])
-        y_est=y_est.reshape((375,1242))*255 #De-normalize for depth viewing
+        y_est=y_est.reshape((192,640))*255 #De-normalize for depth viewing
         #Save results
         heatmap(y_est,save=False,name=f'{image_name}_{model_name}_plasma',cmap='plasma')
         

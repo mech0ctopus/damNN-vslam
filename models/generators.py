@@ -19,9 +19,9 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
         idx=1 #Skip first image since we need t-1
         
         while idx+(batchSize-1)<len(X_filelist):
-            X_train_1=np.zeros((batchSize,480,640,3),dtype=np.uint8)
-            X_train_2=np.zeros((batchSize,480,640,3),dtype=np.uint8)
-            y_train=np.zeros((batchSize,480,640),dtype=np.uint8)
+            X_train_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)
+            X_train_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)
+            y_train=np.zeros((batchSize,192,640),dtype=np.uint8)
             
             for i in range(batchSize):
                 #Load images
@@ -67,9 +67,9 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
         idx=1 #Skip first image since we need t-1
         
         while idx+(batchSize-1)<len(X_val_filelist):
-            X_val_1=np.zeros((batchSize,480,640,3),dtype=np.uint8)
-            X_val_2=np.zeros((batchSize,480,640,3),dtype=np.uint8)
-            y_val=np.zeros((batchSize,480,640),dtype=np.uint8)
+            X_val_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)
+            X_val_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)
+            y_val=np.zeros((batchSize,192,640),dtype=np.uint8)
             
             for i in range(batchSize):
                 #Load images

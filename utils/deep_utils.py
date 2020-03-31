@@ -56,11 +56,12 @@ def depth_read(filename):
     image=Image.open(filename)
     depth_png = np.array(image, dtype=int)
 
-    if depth_png.shape==(375,1242,3):
+    #TODO: Determine if this if legitimate for getting depth values
+    if depth_png.shape==(192,640,4):
         depth_png=(depth_png[:,:,0]+depth_png[:,:,1]+depth_png[:,:,2])/3
     
-    #Convert to 8 bit
-    depth_png=depth_png/(2**8)
+    # #Convert to 8 bit
+    # depth_png=depth_png/(2**8)
     
     assert(np.max(depth_png) <= 255)
     depth=depth_png.astype('int8') #np.float

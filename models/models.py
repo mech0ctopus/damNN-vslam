@@ -10,10 +10,10 @@ import segmentation_models
 
 segmentation_models.set_framework('tf.keras')
 
-def unet(input_shape=(375,1242,3)):
+def unet(input_shape=(192,640,3)):
     '''Define U-Net model.'''
     #Load unet with resnet34 backbone with no weights
-    premodel = segmentation_models.Unet('resnet34', 
+    premodel = segmentation_models.Unet('vgg16', 
                                         input_shape=input_shape, 
                                         encoder_weights=None,
                                         encoder_freeze=False)
@@ -25,18 +25,18 @@ def unet(input_shape=(375,1242,3)):
 
     return model
 
-def parallel_unets(input_shape=(375,1242,3)):
+def parallel_unets(input_shape=(192,640,3)): #375,1242 TODO: Need to update dim input
     '''Define Parallel U-Nets model.'''
     #Define input size
     input_1=Input(input_shape) #Image at time=t
     input_2=Input(input_shape) #Image at time=(t-1)
-                                        
-    #Load unet with resnet34 backbone with no weights
-    unet_1 = segmentation_models.Unet('resnet34', 
+                                     
+    #Load unet with vgg backbone with no weights
+    unet_1 = segmentation_models.Unet('vgg16', 
                                       input_shape=input_shape, 
                                       encoder_weights=None,
                                       encoder_freeze=False)
-    unet_2 = segmentation_models.Unet('resnet34', 
+    unet_2 = segmentation_models.Unet('vgg16',  #
                                       input_shape=input_shape, 
                                       encoder_weights=None,
                                       encoder_freeze=False)
@@ -62,10 +62,53 @@ def parallel_unets(input_shape=(375,1242,3)):
 
     return model
 
+def parallel_unets_with_tf(input_shape=(192,640,3)): #375,1242 TODO: Need to update dim input
+    '''Define Parallel U-Nets model.'''
+    #Define input size
+    input_1=Input(input_shape) #Image at time=t
+    input_2=Input(input_shape) #Image at time=(t-1)
+                                     
+    #Load unet with vgg backbone with no weights
+    unet_1 = segmentation_models.Unet('vgg16', 
+                                      input_shape=input_shape, 
+                                      encoder_weights=None,
+                                      encoder_freeze=False)
+    unet_2 = segmentation_models.Unet('vgg16',  #
+                                      input_shape=input_shape, 
+                                      encoder_weights=None,
+                                      encoder_freeze=False)
+    
+    #Get final conv. output and skip sigmoid activation layer
+    unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output)
+    unet_2=Model(inputs=unet_2.input, outputs=unet_2.layers[-2].output)
+    
+    #Run input through both unets
+    unet_1_out=unet_1(input_1)
+    unet_2_out=unet_2(input_2)
+    
+    #Merge unet outputs
+    merged=Concatenate()([unet_1_out,unet_2_out])
+    #Reduce outputs from U-Nets
+    flatten=Flatten()(merged)
+    #Add dense layers
+    dense1=Dense(16,activation='relu')(flatten)
+    #Define output layer for depth
+    depth_output=Dense(input_shape[0]*input_shape[1],activation='linear')(dense1)
+    
+    #Create transform branch for predicting 3x4 odom matrix
+    dense2=Dense(256,activation='relu')(dense1)
+    dense3=Dense(128,activation='relu')(dense2)
+    transform=Dense(12,activation='linear')(dense3)
+    
+    #Define inputs and outputs    
+    model = Model(inputs=[input_1,input_2], outputs=[depth_output,transform])
+
+    return model
+
 if __name__=='__main__':
-    model=parallel_unets()
+    model=parallel_unets_with_tf()
     model.summary()
-    plot_model(model, to_file='model.png', 
+    plot_model(model, to_file='parallel_unets_with_tf.png', 
                show_shapes=True, 
                show_layer_names=True, 
                rankdir='LR',  #LR or TB for vertical or horizontal
