@@ -24,24 +24,30 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t
             X_train_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             y_train_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
-            y_train_odom=np.zeros((batchSize,12),dtype=np.uint8)   #dt odom
-            
+            y_train_odom=np.zeros((batchSize,12),dtype=np.float64)   #dt odom
+
             for i in range(batchSize):
                 #Load images
                 X_train_1[i]=rgb_read(X_filelist[idx+i])   #time=t
                 X_train_2[i]=rgb_read(X_filelist[idx-1+i]) #time=t-1
                 y_train_depth[i]=depth_read(y_filelist[idx+i])   #time=t
-                
+
                 #Calculate change in odometry
                 current_filename=X_filelist[idx+i]   #time=t
                 sequence_id, frame_id=basename(current_filename).split('_sync_')
+                
+                print('original:' + frame_id)
                 frame_id=int(frame_id.split('.')[0])
+                
+                print('converted:' + str(frame_id))
+                
                 prev_frame_id=frame_id-1
                 
                 current_odom=read_odom(sequence_id, frame_id)
                 prev_odom=read_odom(sequence_id, prev_frame_id)
-                
+                #print('Train: '+f'{frame_id}, {prev_frame_id}')
                 y_train_odom[i]=current_odom-prev_odom
+
     
             #Reshape [samples][width][height][pixels]
             X_train_1 = X_train_1.reshape(X_train_1.shape[0], X_train_1.shape[1], 
@@ -62,10 +68,14 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
                 
             idx+=batchSize
             
+            y_train_depth=y_train_depth.reshape((batchSize,len(y_train_depth)))
+            
             #Provide both images [time=t, time(t-1)]
             X_train=[X_train_1, X_train_2]
             #Provide depth and odom
             y_train=[y_train_depth, y_train_odom]
+            
+            print('Train: '+str(y_train_depth.shape)+','+str(y_train_odom.shape))
             
             yield X_train, y_train
             
@@ -86,22 +96,27 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             X_val_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t
             X_val_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             y_val_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
-            y_val_odom=np.zeros((batchSize,12),dtype=np.uint8)   #dt odom
-            
+            y_val_odom=np.zeros((batchSize,12),dtype=np.float64)   #dt odom
+
             for i in range(batchSize):
                 #Load images
                 X_val_1[i]=rgb_read(X_val_filelist[idx+i])   #time=t
                 X_val_2[i]=rgb_read(X_val_filelist[idx-1+i]) #time=t-1
                 y_val_depth[i]=depth_read(y_val_filelist[idx+i])   #time=t
-                
+
                 #Calculate change in odometry
                 current_filename=X_val_filelist[idx+i]   #time=t
                 sequence_id, frame_id=basename(current_filename).split('_sync_')
+                
+                print('original:' + frame_id)
                 frame_id=int(frame_id.split('.')[0])
+                
+                print('converted:' + str(frame_id))
                 prev_frame_id=frame_id-1
                 
                 current_odom=read_odom(sequence_id, frame_id)
                 prev_odom=read_odom(sequence_id, prev_frame_id)
+                #print('Val: '+f'{frame_id}, {prev_frame_id}')
                 
                 y_val_odom[i]=current_odom-prev_odom
                 
@@ -124,9 +139,13 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
                 
             idx+=batchSize
             
+            y_val_depth=y_val_depth.reshape((batchSize,len(y_val_depth)))
+            
             #Provide both images [time=t, time(t-1)]
             X_val=[X_val_1, X_val_2]
             #Provide depth and odom
             y_val=[y_val_depth, y_val_odom]
+            
+            print('Val: '+str(y_val_depth.shape)+','+str(y_val_odom.shape))
             
             yield X_val, y_val

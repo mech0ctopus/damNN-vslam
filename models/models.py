@@ -91,18 +91,18 @@ def parallel_unets_with_tf(input_shape=(192,640,3)): #375,1242 TODO: Need to upd
     #Reduce outputs from U-Nets
     flatten=Flatten()(merged)
     #Add dense layers
-    dense1=Dense(16,activation='relu')(flatten)
+    dense1=Dense(1,activation='relu')(flatten) #16
     #Define output layer for depth
-    depth_output=Dense(input_shape[0]*input_shape[1],activation='linear')(dense1)
+    depth_output=Dense(input_shape[0]*input_shape[1],activation='linear',name='depth_output')(dense1)
     
     #Create transform branch for predicting 3x4 odom matrix
-    dense2=Dense(256,activation='relu')(dense1)
-    dense3=Dense(128,activation='relu')(dense2)
-    transform=Dense(12,activation='linear')(dense3)
+    dense2=Dense(30,activation='relu')(dense1) #256
+    dense3=Dense(16,activation='relu')(dense2) #128
+    transform=Dense(12,activation='linear',name='vo_output')(dense3)
     
     #Define inputs and outputs    
     model = Model(inputs=[input_1,input_2], outputs=[depth_output,transform])
-
+    
     return model
 
 if __name__=='__main__':
