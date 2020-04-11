@@ -17,6 +17,7 @@ from PIL import Image
 import deep_utils
 from glob import glob
 from timeit import default_timer as timer
+from os.path import basename
 
 # fill_depth_colorization.m
 # Preprocesses the kinect depth image using a gray scale version of the
@@ -121,8 +122,10 @@ def fill_depth_colorization(imgRgb=None, imgDepthInput=None, alpha=1):
 	return output
 
 if __name__=="__main__":
-    X_files=glob(r"C:\Users\Craig\Documents\GitHub\damNN-vslam\images\X\\"+'*.png')
-    y_files=glob(r"C:\Users\Craig\Documents\GitHub\damNN-vslam\images\y\\"+'*.png')
+    sequence_id='2011_09_30_drive_0020_sync'
+    
+    X_files=glob(r"G:\Documents\KITTI\raw_data\RGB\\"+sequence_id+"\\"+'*.png')
+    y_files=glob(r"G:\Documents\KITTI\raw_data\Depth\\"+sequence_id+"\\"+'*.png')
     
     X_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
     y_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
@@ -139,11 +142,14 @@ if __name__=="__main__":
             imgDepthInput=deep_utils.depth_read(y_files[idx])
             #Colorize
             denoised_depth_img=fill_depth_colorization(imgRgb=imgRgb, imgDepthInput=imgDepthInput, alpha=0.8)
+            output_name=basename(y_files[idx]).split('.')[0]
             #Save depth image
             deep_utils.heatmap(denoised_depth_img,save=True,show=False,
-                                name=r'C:\Users\Craig\Documents\GitHub\damNN-vslam\images\y\colorized\\'+f'c_depth_{idx}')
+                                name=r'G:\Documents\KITTI\raw_data\Depth\\'+sequence_id+'\colorized\\'+f'{output_name}')
             end=timer()
             dt=round(end-start,2)
-            print(f'Saving {idx+1}/{len_files} in {dt} sec')
+            
+            if (idx+1)%20==0:
+                print(f'Saving {idx+1}/{len_files} in {dt} sec')
         else:
             pass

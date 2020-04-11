@@ -4,6 +4,8 @@ Generators
 """
 from utils.deep_utils import depth_read, rgb_read
 import numpy as np
+from os.path import basename
+from utils.read_odom import read_odom
 
 def _batchGenerator(X_filelist,y_filelist,batchSize):
     """
@@ -19,15 +21,27 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
         idx=1 #Skip first image since we need t-1
         
         while idx+(batchSize-1)<len(X_filelist):
-            X_train_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)
-            X_train_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)
-            y_train=np.zeros((batchSize,192,640),dtype=np.uint8)
+            X_train_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t
+            X_train_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
+            y_train_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
+            y_train_odom=np.zeros((batchSize,12),dtype=np.uint8)   #dt odom
             
             for i in range(batchSize):
                 #Load images
                 X_train_1[i]=rgb_read(X_filelist[idx+i])   #time=t
-                X_train_2[i]=rgb_read(X_filelist[idx-1+i]) #time=t=1
-                y_train[i]=depth_read(y_filelist[idx+i])   #time=t
+                X_train_2[i]=rgb_read(X_filelist[idx-1+i]) #time=t-1
+                y_train_depth[i]=depth_read(y_filelist[idx+i])   #time=t
+                
+                #Calculate change in odometry
+                current_filename=X_filelist[idx+i]   #time=t
+                sequence_id, frame_id=basename(current_filename).split('_sync_')
+                frame_id=int(frame_id.split('.')[0])
+                prev_frame_id=frame_id-1
+                
+                current_odom=read_odom(sequence_id, frame_id)
+                prev_odom=read_odom(sequence_id, prev_frame_id)
+                
+                y_train_odom[i]=current_odom-prev_odom
     
             #Reshape [samples][width][height][pixels]
             X_train_1 = X_train_1.reshape(X_train_1.shape[0], X_train_1.shape[1], 
@@ -35,21 +49,23 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train_2 = X_train_2.reshape(X_train_2.shape[0], X_train_2.shape[1], 
                                           X_train_2.shape[2], X_train_2.shape[3]).astype(np.uint8)
             
-            y_train = y_train.reshape((y_train.shape[0],1,-1)).astype(np.uint8)
-            y_train = y_train.squeeze()
+            y_train_depth = y_train_depth.reshape((y_train_depth.shape[0],1,-1)).astype(np.uint8)
+            y_train_depth = y_train_depth.squeeze()
                  
             # normalize inputs and outputs from 0-255 to 0-1
             X_train_1=np.divide(X_train_1,255).astype(np.float16)   
             X_train_2=np.divide(X_train_2,255).astype(np.float16)
-            y_train=np.divide(y_train,255).astype(np.float16)
+            y_train_depth=np.divide(y_train_depth,255).astype(np.float16)
             
             if (idx % 1024)==0:
                 print(str(idx)+'/'+str(len(X_filelist)))
                 
             idx+=batchSize
             
-            #Provide both images
+            #Provide both images [time=t, time(t-1)]
             X_train=[X_train_1, X_train_2]
+            #Provide depth and odom
+            y_train=[y_train_depth, y_train_odom]
             
             yield X_train, y_train
             
@@ -67,29 +83,41 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
         idx=1 #Skip first image since we need t-1
         
         while idx+(batchSize-1)<len(X_val_filelist):
-            X_val_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)
-            X_val_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)
-            y_val=np.zeros((batchSize,192,640),dtype=np.uint8)
+            X_val_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t
+            X_val_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
+            y_val_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
+            y_val_odom=np.zeros((batchSize,12),dtype=np.uint8)   #dt odom
             
             for i in range(batchSize):
                 #Load images
                 X_val_1[i]=rgb_read(X_val_filelist[idx+i])   #time=t
                 X_val_2[i]=rgb_read(X_val_filelist[idx-1+i]) #time=t-1
-                y_val[i]=depth_read(y_val_filelist[idx+i])   #time=t
-    
+                y_val_depth[i]=depth_read(y_val_filelist[idx+i])   #time=t
+                
+                #Calculate change in odometry
+                current_filename=X_val_filelist[idx+i]   #time=t
+                sequence_id, frame_id=basename(current_filename).split('_sync_')
+                frame_id=int(frame_id.split('.')[0])
+                prev_frame_id=frame_id-1
+                
+                current_odom=read_odom(sequence_id, frame_id)
+                prev_odom=read_odom(sequence_id, prev_frame_id)
+                
+                y_val_odom[i]=current_odom-prev_odom
+                
             #Reshape [samples][width][height][pixels]
             X_val_1 = X_val_1.reshape(X_val_1.shape[0], X_val_1.shape[1], 
                                       X_val_1.shape[2], X_val_1.shape[3]).astype(np.uint8)
             X_val_2 = X_val_2.reshape(X_val_2.shape[0], X_val_2.shape[1], 
                                       X_val_2.shape[2], X_val_2.shape[3]).astype(np.uint8)
             
-            y_val = y_val.reshape((y_val.shape[0],1,-1)).astype(np.uint8)
-            y_val = y_val.squeeze()
+            y_val_depth = y_val_depth.reshape((y_val_depth.shape[0],1,-1)).astype(np.uint8)
+            y_val_depth = y_val_depth.squeeze()
                  
             # normalize inputs and outputs from 0-255 to 0-1
             X_val_1=np.divide(X_val_1,255).astype(np.float16)
             X_val_2=np.divide(X_val_2,255).astype(np.float16)
-            y_val=np.divide(y_val,255).astype(np.float16)
+            y_val_depth=np.divide(y_val_depth,255).astype(np.float16)
             
             if (idx % 1024)==0:
                 print(str(idx)+'/'+str(len(X_val_filelist)))
@@ -98,5 +126,7 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             
             #Provide both images [time=t, time(t-1)]
             X_val=[X_val_1, X_val_2]
+            #Provide depth and odom
+            y_val=[y_val_depth, y_val_odom]
             
             yield X_val, y_val

@@ -110,7 +110,7 @@ if __name__=='__main__':
     model.summary()
     plot_model(model, to_file='parallel_unets_with_tf.png', 
                show_shapes=True, 
-               show_layer_names=True, 
-               rankdir='LR',  #LR or TB for vertical or horizontal
+               show_layer_names=False, 
+               rankdir='TB',  #LR or TB for vertical or horizontal
                expand_nested=False, 
                dpi=96)
