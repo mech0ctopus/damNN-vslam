@@ -12,7 +12,7 @@ from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
 import datetime
 from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession, RunOptions
+from tensorflow.compat.v1 import InteractiveSession
 import segmentation_models
 import numpy as np
 from os.path import basename
@@ -21,32 +21,31 @@ config = ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.9
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
-#run_opts = RunOptions(report_tensor_allocations_upon_oom = True)
             
 def main(model_name, model, num_epochs, batch_size):
     '''Trains model.'''
     
     segmentation_models.set_framework('tf.keras')
-    print(segmentation_models.framework())
     
     #Build list of training filenames
-    X_folderpath=r"G:\Documents\KITTI\raw_data\RGB\2011_10_03_drive_0042_sync\resize\\"
-    y_folderpath=r"G:\Documents\KITTI\raw_data\Depth\2011_10_03_drive_0042_sync\colorized\resize\\"
+    X_folderpath=r"G:\Documents\KITTI\data\train\X\\"
+    y_folderpath=r"G:\Documents\KITTI\data\train\y\\"
     X_filelist=glob(X_folderpath+'*.png')
     y_filelist=glob(y_folderpath+'*.png')
     
     #Build list of validation filenames
-    X_val_folderpath=r"G:\Documents\KITTI\raw_data\RGB\2011_09_30_drive_0016_sync\resize\\"
-    y_val_folderpath=r"G:\Documents\KITTI\raw_data\Depth\2011_09_30_drive_0016_sync\colorized\resize\\"
+    X_val_folderpath=r"G:\Documents\KITTI\data\val\X\\"
+    y_val_folderpath=r"G:\Documents\KITTI\data\val\y\\"
     X_val_filelist=glob(X_val_folderpath+'*.png')
     y_val_filelist=glob(y_val_folderpath+'*.png')
     
     model=model()
     
+    #Define losses for each output
     losses = {"depth_output": 'mean_squared_error',
               "vo_output": 'mean_squared_error'}
 
-    model.compile(loss=losses,optimizer=Adam(lr=1e-5))#,options=run_opts) 
+    model.compile(loss=losses,optimizer=Adam(lr=1e-5))
     
     #Save best model weights checkpoint
     filepath=f"{model_name}_weights_best.hdf5"
@@ -75,7 +74,7 @@ if __name__=='__main__':
     model=models.parallel_unets_with_tf
     model_name='parallel_unets_with_tf'
     model=main(model_name=model_name,model=model,
-               num_epochs=5,batch_size=1) #2 (1:OOM)
+               num_epochs=5,batch_size=1)
     show_test_image=True
     
     #Save model
@@ -88,13 +87,14 @@ if __name__=='__main__':
                           save_weights=False)
     
     if show_test_image:
-        image1_path=r"images\test\X\0000000080.PNG"
+        #"C:\Users\Craig\Documents\GitHub\damNN-vslam\images\test\X\0000000080.png"
+        image1_path=r"G:\Documents\KITTI\data\val\X\2011_09_30_drive_0018_sync_0000000135.png"
         #Read test image
         image1=rgb_read(image1_path) #640x480, 1242x375
         image1=image1.reshape(1,192,640,3)
         image1=np.divide(image1,255).astype(np.float16)
 
-        image2_path=r"images\test\X\0000000079.PNG"
+        image2_path=r"G:\Documents\KITTI\data\val\X\2011_09_30_drive_0018_sync_0000000134.png"
         #Read test image
         image2=rgb_read(image2_path) #640x480
         image2=image2.reshape(1,192,640,3)
@@ -106,5 +106,6 @@ if __name__=='__main__':
         y_est=y_est.reshape((192,640))*255 #De-normalize for depth viewing
         #Save results
         heatmap(y_est,save=False,name=f'{image_name}_{model_name}_plasma',cmap='plasma')
+        odom_dt=odom_dt.reshape((3,4))
         print(odom_dt)
         

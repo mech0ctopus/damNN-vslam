@@ -18,6 +18,7 @@ import deep_utils
 from glob import glob
 from timeit import default_timer as timer
 from os.path import basename
+#from numba import jit
 
 # fill_depth_colorization.m
 # Preprocesses the kinect depth image using a gray scale version of the
@@ -32,7 +33,7 @@ from os.path import basename
 #  imgDepth - HxW matrix, the depth image for the current frame in
 #       absolute (meters) space.
 #  alpha - a penalty value between 0 and 1 for the current depth values.
-
+#@jit(nopython=True,forceobj=True,parallel=True)
 def fill_depth_colorization(imgRgb=None, imgDepthInput=None, alpha=1):
 	imgIsNoise = imgDepthInput == 0
 	maxImgAbsDepth = np.max(imgDepthInput)
@@ -122,7 +123,8 @@ def fill_depth_colorization(imgRgb=None, imgDepthInput=None, alpha=1):
 	return output
 
 if __name__=="__main__":
-    sequence_id='2011_09_30_drive_0020_sync'
+    sequence_id='2011_09_30_drive_0028_sync'
+    last_image_idx=1213
     
     X_files=glob(r"G:\Documents\KITTI\raw_data\RGB\\"+sequence_id+"\\"+'*.png')
     y_files=glob(r"G:\Documents\KITTI\raw_data\Depth\\"+sequence_id+"\\"+'*.png')
@@ -132,14 +134,12 @@ if __name__=="__main__":
     
     len_files=len(X_files)
     
-    last_image=0
-    
     for idx in range(len_files):
-        if idx>=last_image:
+        if idx>=last_image_idx:
             start=timer()
             #Read RGB and depth input images
             imgRgb=deep_utils.rgb_read(X_files[idx])
-            imgDepthInput=deep_utils.depth_read(y_files[idx])
+            imgDepthInput=deep_utils.depth_read_pre(y_files[idx])
             #Colorize
             denoised_depth_img=fill_depth_colorization(imgRgb=imgRgb, imgDepthInput=imgDepthInput, alpha=0.8)
             output_name=basename(y_files[idx]).split('.')[0]

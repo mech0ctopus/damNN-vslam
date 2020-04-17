@@ -30,7 +30,8 @@ def rename_files(directory, prefix, filetype='.pdf'):
         rename_file(directory,old_filename,new_filename,filetype)
 
 if __name__=="__main__":
-    directory=r"G:\Documents\KITTI\raw_data\RGB\2011_09_30_drive_0027_sync"
+    directory=r"G:\Documents\KITTI\raw_data\RGB\2011_10_03_drive_0027_sync"
     prefix=directory.split('\\')[-1]
+    #prefix=""
     ftype=".png"
     rename_files(directory,prefix,ftype)

@@ -60,9 +60,29 @@ def depth_read(filename):
     if depth_png.shape==(192,640,4):
         # print('it is')
         depth_png=(depth_png[:,:,0]+depth_png[:,:,1]+depth_png[:,:,2])/3
+    
+    assert(np.max(depth_png) <= 255)
+    depth=depth_png.astype('int8') #np.float
+ 
+    image.close()
+
+    return depth
+
+def depth_read_pre(filename):
+    '''Loads depth map D from png file and returns it as a numpy array'''
+    #Lower is closer
+    # From KITTI devkit
+    
+    image=Image.open(filename)
+    depth_png = np.array(image, dtype=int)
+    
+    #TODO: Determine if this if legitimate for getting depth values
+    if depth_png.shape==(192,640,4):
+        # print('it is')
+        depth_png=(depth_png[:,:,0]+depth_png[:,:,1]+depth_png[:,:,2])/3
     #print(depth_png.shape)
-    # #Convert to 8 bit
-    # depth_png=depth_png/(2**8)
+    #Convert to 8 bit
+    depth_png=depth_png/(2**8)
     
     assert(np.max(depth_png) <= 255)
     depth=depth_png.astype('int8') #np.float
@@ -79,9 +99,9 @@ def heatmap(image,save=False,name='heatmap',cmap='gray',show=True):
         #Convert to np.ndarray
         pic=Image.open(image)
         pic_array=np.array(pic)
-    #Plot heatmap
-    plt.imshow(pic_array, cmap=cmap, interpolation='nearest') #cmap=binary, plasma, gray
     if show==True:
+        #Plot heatmap
+        plt.imshow(pic_array, cmap=cmap, interpolation='nearest') #cmap=binary, plasma, gray
         plt.show()
     if save==True:
-        plt.imsave(name+'.png',pic_array, cmap=cmap)
+        plt.imsave(name+'.png',pic_array, cmap=cmap)# interpolation='nearest')

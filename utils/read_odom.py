@@ -6,6 +6,7 @@ import numpy as np
 
 def read_odom(sequence_id,desired_frame): 
     '''Return odom data for sequence_id at specific frame.'''
+    from math import atan, sqrt
     odom_ids={"2011_10_03_drive_0027":"00",
               "2011_10_03_drive_0042":"01",
               "2011_10_03_drive_0034":"02",
@@ -50,11 +51,24 @@ def read_odom(sequence_id,desired_frame):
                 current_data=np.array(current_data,dtype=np.float64)
                 #data[frame]=np.array(current_data,dtype=np.float16)
                 break
+            
+    #Get roll, pitch, yaw from data
+    roll=atan(current_data[9]/current_data[10])
+    pitch=atan(-current_data[8]/sqrt((current_data[9]**2)+(current_data[10]**2)))
+    yaw=atan(current_data[4]/current_data[0])
+    
+    #Get translations from data
+    dx,dy,dz=current_data[3], current_data[7], current_data[11]
+    
+    #Set result
+    current_data=np.array([roll, pitch, yaw, dx, dy, dz])
+    
     return current_data
     #return data[desired_frame]
 
 if __name__=='__main__':
     test_data=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=6)
     print(test_data)
+    print(test_data.shape)
 
         
