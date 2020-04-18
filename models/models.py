@@ -62,7 +62,7 @@ def parallel_unets(input_shape=(192,640,3)): #375,1242 TODO: Need to update dim 
 
     return model
 
-def cnn(input_shape=(192,640,3)):
+def cnn(input_shape=(192,640,4)):
 	'''Define CNN model'''
 	model = Sequential()
 	model.add(Convolution2D(30, 5, 5, padding='valid',input_shape=input_shape, activation='relu'))
@@ -72,89 +72,58 @@ def cnn(input_shape=(192,640,3)):
 	model.add(Dropout(0.5))
 	model.add(Flatten())
 	model.add(Dropout(0.5))
+	model.add(Dense(512, activation='relu'))
+	model.add(Dropout(0.5))
+	model.add(Dense(512, activation='relu'))
+	model.add(Dropout(0.5))
 	model.add(Dense(256, activation='relu'))
 	model.add(Dropout(0.5))
-	model.add(Dense(128, activation='relu'))
-	model.add(Dropout(0.5))
-	model.add(Dense(64, activation='relu'))
-	model.add(Dropout(0.5))
-	model.add(Dense(64, activation='relu'))
+	model.add(Dense(256, activation='relu'))
 	model.add(Dropout(0.5))
 
 	return model
 
-def parallel_unets_with_tf(input_shape=(192,640,3)): #375,1242 TODO: Need to update dim input
+def parallel_unets_with_tf(input_shape=(192,640,3)):
     '''Define Parallel U-Nets model.'''
     #Define input size
     input_1=Input(input_shape) #Image at time=t
     input_2=Input(input_shape) #Image at time=(t-1)
-                                     
-    #Load unet with vgg backbone with no weights
+            
+    #CURRENTLY IN USE                         
+    # #Load unet with vgg backbone with no weights
     unet_1 = segmentation_models.Unet('resnet50', 
                                       input_shape=input_shape, 
                                       encoder_weights='imagenet',
                                       encoder_freeze=False)
-    unet_2 = segmentation_models.Unet('resnet50',  #
+    unet_2 = segmentation_models.Unet('resnet50',
                                       input_shape=input_shape, 
                                       encoder_weights='imagenet',
                                       encoder_freeze=False)
     
-    #Get final conv. output and skip sigmoid activation layer
-    unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output)
+    # #Get final conv. output and skip sigmoid activation layer
+    unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output,name='depth_output')
     unet_2=Model(inputs=unet_2.input, outputs=unet_2.layers[-2].output)
-    
+        
     #Run input through both unets
     unet_1_out=unet_1(input_1)
     unet_2_out=unet_2(input_2)
-
-    unet_1_out_flatten=Flatten()(unet_1_out)
-    unet_2_out_flatten=Flatten()(unet_2_out)
     
     #Merge unet outputs
-    merged=Concatenate()([unet_1_out_flatten,unet_2_out_flatten])
-    #TODO: SHOULD WE USE LSTM HERE FOR DEPTH? Update tf inputs if yes
-    reshape_depth=Reshape((2,input_shape[0]*input_shape[1]))(merged)
-    lstm_depth=LSTM(16,return_sequences=False)(reshape_depth)
-    dropout_depth=Dropout(0.5)(lstm_depth)
-    depth_output=Dense(input_shape[0]*input_shape[1],activation='linear',name='depth_output')(dropout_depth)
-    # rbgd1=Concatenate()([input_1,lstm_depth[0]])
-    # rbgd2=Concatenate()([input_2,lstm_depth[1]])
+    rbgd1=Concatenate()([input_1,unet_1_out])
+    rbgd2=Concatenate()([input_2,unet_2_out])
     
-    #Define convolutional net to use info from both U-net outputs for depth
-    #depth_cnn=cnn()(merged)
-    
-    #Create transform branch for predicting rpy/xyz odom matrix 
-    #Reduce outputs from U-Nets
-    #flatten=Flatten()(merged)
-    #Add dense layers
-    #dense1=Dense(64,activation='relu')(flatten)
-    #dropout1=Dropout(0.5)(dense1)
-    #Define output layer for depth
-   # depth_output=Dense(input_shape[0]*input_shape[1],activation='linear',name='depth_output')(dropout1)
-    
-    #Networks for VO
-    #tf_cnn_t_0=cnn()(input_1) #t
-    tf_unet_t_0=segmentation_models.Unet('resnet50', 
-                                      input_shape=input_shape, 
-                                      encoder_weights=None,
-                                      encoder_freeze=False)(input_1) #t, rgbd1
-    #tf_cnn_t_1=cnn()(input_2) #t-1
-    tf_unet_t_1=segmentation_models.Unet('resnet50', 
-                                      input_shape=input_shape, 
-                                      encoder_weights=None,
-                                      encoder_freeze=False)(input_2) #t=1, rgbd2
-    tf_unet_t_0_flat=Flatten()(tf_unet_t_0)
-    tf_unet_t_1_flat=Flatten()(tf_unet_t_1)
+    #Create transform branch for predicting rpy/xyz odom matrix/Networks for VO
+    tf_cnn_t_0=cnn()(rbgd1) #t
+    tf_cnn_t_1=cnn()(rbgd2) #t-1
+    # tf_unet_t_0_flat=Flatten()(tf_cnn_t_0)
+    # tf_unet_t_1_flat=Flatten()(tf_cnn_t_1)
     
     #Merge VO CNN ouputs
-    merged2=Concatenate()([tf_unet_t_0_flat,tf_unet_t_1_flat])
-    reshape=Reshape((2,input_shape[0]*input_shape[1]))(merged2)
-    lstm1=LSTM(128,return_sequences=True)(reshape)
-    lstm2=LSTM(128,return_sequences=False)(lstm1) 
-    transform=Dense(6,activation='linear',name='vo_output')(lstm2)
+    merged2=Concatenate()([tf_cnn_t_0,tf_cnn_t_1])
+    transform=Dense(6,activation='linear',name='vo_output')(merged2)
     
     #Define inputs and outputs    
-    model = Model(inputs=[input_1,input_2], outputs=[depth_output,transform])
+    model = Model(inputs=[input_1,input_2], outputs=[unet_1_out,transform])
     
     return model
 
