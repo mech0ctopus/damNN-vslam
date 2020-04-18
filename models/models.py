@@ -88,42 +88,42 @@ def parallel_unets_with_tf(input_shape=(192,640,3)):
     #Define input size
     input_1=Input(input_shape) #Image at time=t
     input_2=Input(input_shape) #Image at time=(t-1)
-            
-    #CURRENTLY IN USE                         
-    # #Load unet with vgg backbone with no weights
-    unet_1 = segmentation_models.Unet('resnet50', 
+                                    
+    #Load unet with backbone with no imagnet weights
+    unet_1 = segmentation_models.Unet('resnet50', #resnet50
                                       input_shape=input_shape, 
                                       encoder_weights='imagenet',
                                       encoder_freeze=False)
-    unet_2 = segmentation_models.Unet('resnet50',
+    unet_2 = segmentation_models.Unet('resnet50', #mobilenetv2
                                       input_shape=input_shape, 
                                       encoder_weights='imagenet',
                                       encoder_freeze=False)
     
-    # #Get final conv. output and skip sigmoid activation layer
-    unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output,name='depth_output')
+    #Get final conv. output and skip sigmoid activation layer
+    unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output)
     unet_2=Model(inputs=unet_2.input, outputs=unet_2.layers[-2].output)
         
     #Run input through both unets
     unet_1_out=unet_1(input_1)
     unet_2_out=unet_2(input_2)
     
+    #depth_out=Reshape((1,input_shape[0]*input_shape[1]),name='depth_output')(unet_1_out)
+    depth_out=Flatten(name='depth_output')(unet_1_out)
+    
     #Merge unet outputs
     rbgd1=Concatenate()([input_1,unet_1_out])
     rbgd2=Concatenate()([input_2,unet_2_out])
     
     #Create transform branch for predicting rpy/xyz odom matrix/Networks for VO
-    tf_cnn_t_0=cnn()(rbgd1) #t
-    tf_cnn_t_1=cnn()(rbgd2) #t-1
-    # tf_unet_t_0_flat=Flatten()(tf_cnn_t_0)
-    # tf_unet_t_1_flat=Flatten()(tf_cnn_t_1)
+    tf_cnn_t_1=cnn()(rbgd1) #t
+    tf_cnn_t_2=cnn()(rbgd2) #t-1
     
     #Merge VO CNN ouputs
-    merged2=Concatenate()([tf_cnn_t_0,tf_cnn_t_1])
+    merged2=Concatenate()([tf_cnn_t_1,tf_cnn_t_2])
     transform=Dense(6,activation='linear',name='vo_output')(merged2)
     
     #Define inputs and outputs    
-    model = Model(inputs=[input_1,input_2], outputs=[unet_1_out,transform])
+    model = Model(inputs=[input_1,input_2], outputs=[depth_out,transform])
     
     return model
 

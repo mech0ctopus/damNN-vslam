@@ -12,7 +12,7 @@ from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
 import datetime
 from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
+from tensorflow.compat.v1 import InteractiveSession, RunOptions
 import segmentation_models
 import numpy as np
 from os.path import basename
@@ -21,6 +21,7 @@ config = ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.9
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
+# run_opts = RunOptions(report_tensor_allocations_upon_oom = True)
             
 def main(model_name, model, num_epochs, batch_size):
     '''Trains model.'''
@@ -42,10 +43,10 @@ def main(model_name, model, num_epochs, batch_size):
     model=model()
     
     #Define losses for each output
-    losses = {"depth_output": 'mean_squared_error',
+    losses = {'depth_output': 'mean_squared_error',
               "vo_output": 'mean_squared_error'}
 
-    model.compile(loss=losses,optimizer=Adam(lr=1e-5))
+    model.compile(loss=losses,optimizer=Adam(lr=1e-5)) #, options = run_opts) #1e-5
     
     #Save best model weights checkpoint
     filepath=f"{model_name}_weights_best.hdf5"
@@ -74,7 +75,7 @@ if __name__=='__main__':
     model=models.parallel_unets_with_tf
     model_name='parallel_unets_with_tf'
     model=main(model_name=model_name,model=model,
-               num_epochs=10,batch_size=1)
+               num_epochs=5,batch_size=1)
     show_test_image=True
     
     #Save model
