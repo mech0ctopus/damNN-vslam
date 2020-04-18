@@ -24,7 +24,7 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t
             X_train_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             y_train_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
-            y_train_odom=np.zeros((batchSize,12),dtype=np.float64)   #dt odom
+            y_train_odom=np.zeros((batchSize,6),dtype=np.float64)   #dt odom
 
             for i in range(batchSize):
                 #Load images
@@ -34,18 +34,23 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
 
                 #Calculate change in odometry
                 current_filename=X_filelist[idx+i]   #time=t
+                prev_filename=X_filelist[idx-1+i]   #time=t-1
+                
                 sequence_id, frame_id=basename(current_filename).split('_sync_')
+                prev_sequence_id, prev_frame_id=basename(prev_filename).split('_sync_')
                 
-                print('original:' + frame_id)
+                #print('original:' + frame_id)
                 frame_id=int(frame_id.split('.')[0])
+                prev_frame_id=int(prev_frame_id.split('.')[0])
                 
-                print('converted:' + str(frame_id))
+                #print('converted:' + str(frame_id))
                 
-                prev_frame_id=frame_id-1
+                #prev_frame_id=frame_id-1
                 
                 current_odom=read_odom(sequence_id, frame_id)
-                prev_odom=read_odom(sequence_id, prev_frame_id)
-                #print('Train: '+f'{frame_id}, {prev_frame_id}')
+                prev_odom=read_odom(prev_sequence_id, prev_frame_id)
+                # print('Train: '+f'{sequence_id}, {prev_sequence_id}')
+                # print('Train: '+f'{frame_id}, {prev_frame_id}')
                 y_train_odom[i]=current_odom-prev_odom
 
     
@@ -63,7 +68,7 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train_2=np.divide(X_train_2,255).astype(np.float16)
             y_train_depth=np.divide(y_train_depth,255).astype(np.float16)
             
-            if (idx % 1024)==0:
+            if (idx % 256)==0:
                 print(str(idx)+'/'+str(len(X_filelist)))
                 
             idx+=batchSize
@@ -75,7 +80,7 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             #Provide depth and odom
             y_train=[y_train_depth, y_train_odom]
             
-            print('Train: '+str(y_train_depth.shape)+','+str(y_train_odom.shape))
+            #print('Train: '+str(y_train_depth.shape)+','+str(y_train_odom.shape))
             
             yield X_train, y_train
             
@@ -96,7 +101,7 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             X_val_1=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t
             X_val_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             y_val_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
-            y_val_odom=np.zeros((batchSize,12),dtype=np.float64)   #dt odom
+            y_val_odom=np.zeros((batchSize,6),dtype=np.float64)   #dt odom
 
             for i in range(batchSize):
                 #Load images
@@ -106,16 +111,20 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
 
                 #Calculate change in odometry
                 current_filename=X_val_filelist[idx+i]   #time=t
+                prev_filename=X_val_filelist[idx-1+i]   #time=t-1
+                
                 sequence_id, frame_id=basename(current_filename).split('_sync_')
+                prev_sequence_id, prev_frame_id=basename(prev_filename).split('_sync_')
                 
-                print('original:' + frame_id)
+                #print('original:' + frame_id)
                 frame_id=int(frame_id.split('.')[0])
+                prev_frame_id=int(prev_frame_id.split('.')[0])
                 
-                print('converted:' + str(frame_id))
-                prev_frame_id=frame_id-1
+                #print('converted:' + str(frame_id))
+                #prev_frame_id=frame_id-1
                 
                 current_odom=read_odom(sequence_id, frame_id)
-                prev_odom=read_odom(sequence_id, prev_frame_id)
+                prev_odom=read_odom(prev_sequence_id, prev_frame_id)
                 #print('Val: '+f'{frame_id}, {prev_frame_id}')
                 
                 y_val_odom[i]=current_odom-prev_odom
@@ -134,7 +143,7 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             X_val_2=np.divide(X_val_2,255).astype(np.float16)
             y_val_depth=np.divide(y_val_depth,255).astype(np.float16)
             
-            if (idx % 1024)==0:
+            if (idx % 256)==0: #1024
                 print(str(idx)+'/'+str(len(X_val_filelist)))
                 
             idx+=batchSize
@@ -146,6 +155,6 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             #Provide depth and odom
             y_val=[y_val_depth, y_val_odom]
             
-            print('Val: '+str(y_val_depth.shape)+','+str(y_val_odom.shape))
+            #print('Val: '+str(y_val_depth.shape)+','+str(y_val_odom.shape))
             
             yield X_val, y_val

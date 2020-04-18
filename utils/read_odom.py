@@ -64,7 +64,6 @@ def read_odom(sequence_id,desired_frame):
     current_data=np.array([roll, pitch, yaw, dx, dy, dz])
     
     return current_data
-    #return data[desired_frame]
 
 if __name__=='__main__':
     test_data=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=6)

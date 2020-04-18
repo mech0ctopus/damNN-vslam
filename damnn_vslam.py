@@ -74,7 +74,7 @@ if __name__=='__main__':
     model=models.parallel_unets_with_tf
     model_name='parallel_unets_with_tf'
     model=main(model_name=model_name,model=model,
-               num_epochs=5,batch_size=1)
+               num_epochs=10,batch_size=1)
     show_test_image=True
     
     #Save model
@@ -106,6 +106,6 @@ if __name__=='__main__':
         y_est=y_est.reshape((192,640))*255 #De-normalize for depth viewing
         #Save results
         heatmap(y_est,save=False,name=f'{image_name}_{model_name}_plasma',cmap='plasma')
-        odom_dt=odom_dt.reshape((3,4))
+        odom_dt=odom_dt.reshape((2,3))
         print(odom_dt)
         
