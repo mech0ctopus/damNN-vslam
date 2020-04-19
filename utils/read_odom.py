@@ -70,13 +70,13 @@ def read_odom(sequence_id,desired_frame):
     
     #http://planning.cs.uiuc.edu/node103.html
     #gamma
-    roll=atan2(r32/r33)
+    roll=atan2(r32,r33)
     
     #beta
-    pitch=atan2(-r31/sqrt((r32**2)+(r33**2)))
+    pitch=atan2(-r31,sqrt((r32**2)+(r33**2)))
     
     #alpha
-    yaw=atan2(r21/r11)
+    yaw=atan2(r21,r11)
 
     #Set result
     current_data=np.array([roll, pitch, yaw, dx, dy, dz])
