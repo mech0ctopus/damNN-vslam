@@ -87,15 +87,15 @@ def read_odom(sequence_id,desired_frame):
     # yaw = np.interp(yaw, (-pi, pi), (0,1))
 
     #Translation Normalization
-    maxes=[1827.83, 66.21801, 841.5323, 3.1415883306943355, 1.5690605800920419, 3.1415386023269973]
-    mins=[-389.7065, -57.58387, 2.220446e-16, -3.141569718542289, -1.5696300642331433, -3.1414104611730806]
+    # maxes=[1827.83, 66.21801, 841.5323, 3.1415883306943355, 1.5690605800920419, 3.1415386023269973]
+    # mins=[-389.7065, -57.58387, 2.220446e-16, -3.141569718542289, -1.5696300642331433, -3.1414104611730806]
     
-    tx = np.interp(tx, (mins[0], maxes[0]), (0,1))
-    ty = np.interp(ty, (mins[1], maxes[1]), (0,1))
-    tz = np.interp(tz, (mins[2], maxes[2]), (0,1))
-    roll = np.interp(roll, (mins[3], maxes[3]), (0,1))
-    pitch = np.interp(pitch, (mins[4], maxes[4]), (0,1))
-    yaw = np.interp(yaw, (mins[5], maxes[5]), (0,1))
+    # tx = np.interp(tx, (mins[0], maxes[0]), (0,1))
+    # ty = np.interp(ty, (mins[1], maxes[1]), (0,1))
+    # tz = np.interp(tz, (mins[2], maxes[2]), (0,1))
+    # roll = np.interp(roll, (mins[3], maxes[3]), (0,1))
+    # pitch = np.interp(pitch, (mins[4], maxes[4]), (0,1))
+    # yaw = np.interp(yaw, (mins[5], maxes[5]), (0,1))
     
     #Set result
     current_data=np.array([roll, pitch, yaw, tx, ty, tz])
@@ -250,19 +250,205 @@ def get_mins():
             min_yaw=current_min_yaw
     return min_x,min_y,min_z,min_r,min_p,min_yaw
 
-def denormalize(odom):
-    #Translation Normalization
-    maxes=[1827.83, 66.21801, 841.5323, 3.1415883306943355, 1.5690605800920419, 3.1415386023269973]
-    mins=[-389.7065, -57.58387, 2.220446e-16, -3.141569718542289, -1.5696300642331433, -3.1414104611730806]
-    tx, ty, tz, roll, pitch, yaw = odom
-    tx = np.interp(tx, (0,1), (mins[0], maxes[0]))
-    ty = np.interp(ty, (0,1), (mins[1], maxes[1]))
-    tz = np.interp(tz, (0,1), (mins[2], maxes[2]))
-    roll = np.interp(roll, (0,1), (mins[3], maxes[3]))
-    pitch = np.interp(pitch, (0,1), (mins[4], maxes[4]))
-    yaw = np.interp(yaw, (0,1), (mins[5], maxes[5]))
+def get_max_diff(sequence_id):
+    global frame_ids
+    global odom_ids
+    from math import atan2, sqrt
     
-    denormalized_odom=list(tx, ty, tz, roll, pitch, yaw)
+    folderpath=r"G:\Documents\KITTI\raw_data_odometry\poses\\"
+    odom_id=odom_ids[sequence_id]
+    filepath=folderpath+odom_id+'.txt'
+    
+    start_frame=frame_ids[odom_id][0]
+    end_frame=frame_ids[odom_id][1]
+    
+    frames=np.arange(start_frame,end_frame+1)
+    max_x_diff,max_y_diff,max_z_diff = None, None, None
+    max_r_diff,max_p_diff,max_yaw_diff = None, None, None
+    
+    #Read file
+    with open(filepath,"r") as f:
+        for idx,frame in enumerate(frames):
+            current_data=f.readline()
+            #Read first line of data and split
+            current_data=current_data.strip('\n')
+            current_data=current_data.split(' ')
+            current_data=np.array(current_data,dtype=np.float64)
+            
+            current_x=current_data[3]
+            current_y=current_data[7]
+            current_z=current_data[11]
+            
+            r11=current_data[0]
+            r21=current_data[4]
+            r31=current_data[8]
+            r32=current_data[9]
+            r33=current_data[10]
+            
+            current_roll=atan2(r32,r33)
+            current_pitch=atan2(-r31,sqrt((r32**2)+(r33**2)))
+            current_yaw=atan2(r21,r11)
+
+            if idx>0:
+                current_x_diff=current_x-prev_x
+                current_y_diff=current_y-prev_y
+                current_z_diff=current_z-prev_z
+                current_r_diff=current_roll-prev_roll
+                current_p_diff=current_pitch-prev_pitch
+                current_yaw_diff=current_yaw-prev_yaw
+
+                if max_x_diff==None or current_x_diff>max_x_diff:
+                    max_x_diff=current_x_diff
+                if max_y_diff==None or current_y_diff>max_y_diff:
+                    max_y_diff=current_y_diff
+                if max_z_diff==None or current_x_diff>max_z_diff:
+                    max_z_diff=current_z_diff
+                if max_r_diff==None or current_r_diff>max_r_diff:
+                    max_r_diff=current_r_diff
+                if max_p_diff==None or current_p_diff>max_p_diff:
+                    max_p_diff=current_p_diff
+                if max_yaw_diff==None or current_yaw_diff>max_yaw_diff:
+                    max_yaw_diff=current_yaw_diff
+                    
+            prev_x, prev_y, prev_z=current_x, current_y, current_z
+            prev_roll, prev_pitch, prev_yaw=current_roll, current_pitch, current_yaw
+            
+    return max_x_diff,max_y_diff,max_z_diff,max_r_diff,max_p_diff,max_yaw_diff
+
+def get_max_diffs():
+    global odom_ids
+    idxs=list(odom_ids.keys())
+    max_x_diff,max_y_diff,max_z_diff,max_r_diff,max_p_diff,max_yaw_diff = get_max_diff(idxs[0])
+    for idx in idxs:
+        current_x_diff,current_y_diff,current_z_diff,current_r_diff,current_p_diff,current_yaw_diff = get_max_diff(idx)
+        if current_x_diff>max_x_diff:
+            max_x_diff=current_x_diff
+        if current_y_diff>max_y_diff:
+            max_y_diff=current_y_diff
+        if current_x_diff>max_z_diff:
+            max_z_diff=current_z_diff
+        if current_r_diff>max_r_diff:
+            max_r_diff=current_r_diff
+        if current_p_diff>max_p_diff:
+            max_p_diff=current_p_diff
+        if current_yaw_diff>max_yaw_diff:
+            max_yaw_diff=current_yaw_diff
+    return max_x_diff,max_y_diff,max_z_diff,max_r_diff,max_p_diff,max_yaw_diff   
+
+def get_min_diff(sequence_id):
+    global frame_ids
+    global odom_ids
+    from math import atan2, sqrt
+    
+    folderpath=r"G:\Documents\KITTI\raw_data_odometry\poses\\"
+    odom_id=odom_ids[sequence_id]
+    filepath=folderpath+odom_id+'.txt'
+    
+    start_frame=frame_ids[odom_id][0]
+    end_frame=frame_ids[odom_id][1]
+    
+    frames=np.arange(start_frame,end_frame+1)
+    min_x_diff,min_y_diff,min_z_diff = None, None, None
+    min_r_diff,min_p_diff,min_yaw_diff = None, None, None
+    
+    #Read file
+    with open(filepath,"r") as f:
+        for idx,frame in enumerate(frames):
+            current_data=f.readline()
+            #Read first line of data and split
+            current_data=current_data.strip('\n')
+            current_data=current_data.split(' ')
+            current_data=np.array(current_data,dtype=np.float64)
+            
+            current_x=current_data[3]
+            current_y=current_data[7]
+            current_z=current_data[11]
+            
+            r11=current_data[0]
+            r21=current_data[4]
+            r31=current_data[8]
+            r32=current_data[9]
+            r33=current_data[10]
+            
+            current_roll=atan2(r32,r33)
+            current_pitch=atan2(-r31,sqrt((r32**2)+(r33**2)))
+            current_yaw=atan2(r21,r11)
+
+            if idx>0:
+                current_x_diff=current_x-prev_x
+                current_y_diff=current_y-prev_y
+                current_z_diff=current_z-prev_z
+                current_r_diff=current_roll-prev_roll
+                current_p_diff=current_pitch-prev_pitch
+                current_yaw_diff=current_yaw-prev_yaw
+
+                if min_x_diff==None or current_x_diff<min_x_diff:
+                    min_x_diff=current_x_diff
+                if min_y_diff==None or current_y_diff<min_y_diff:
+                    min_y_diff=current_y_diff
+                if min_z_diff==None or current_x_diff>min_z_diff:
+                    min_z_diff=current_z_diff
+                if min_r_diff==None or current_r_diff<min_r_diff:
+                    min_r_diff=current_r_diff
+                if min_p_diff==None or current_p_diff<min_p_diff:
+                    min_p_diff=current_p_diff
+                if min_yaw_diff==None or current_yaw_diff<min_yaw_diff:
+                    min_yaw_diff=current_yaw_diff
+                    
+            prev_x, prev_y, prev_z=current_x, current_y, current_z
+            prev_roll, prev_pitch, prev_yaw=current_roll, current_pitch, current_yaw
+            
+    return min_x_diff,min_y_diff,min_z_diff,min_r_diff,min_p_diff,min_yaw_diff
+
+def get_min_diffs():
+    global odom_ids
+    idxs=list(odom_ids.keys())
+    min_x_diff,min_y_diff,min_z_diff,min_r_diff,min_p_diff,min_yaw_diff = get_min_diff(idxs[0])
+    for idx in idxs:
+        current_x_diff,current_y_diff,current_z_diff,current_r_diff,current_p_diff,current_yaw_diff = get_min_diff(idx)
+        if current_x_diff<min_x_diff:
+            min_x_diff=current_x_diff
+        if current_y_diff<min_y_diff:
+            min_y_diff=current_y_diff
+        if current_x_diff<min_z_diff:
+            min_z_diff=current_z_diff
+        if current_r_diff<min_r_diff:
+            min_r_diff=current_r_diff
+        if current_p_diff<min_p_diff:
+            min_p_diff=current_p_diff
+        if current_yaw_diff<min_yaw_diff:
+            min_yaw_diff=current_yaw_diff
+    return min_x_diff,min_y_diff,min_z_diff,min_r_diff,min_p_diff,min_yaw_diff 
+
+def normalize(odom):
+    '''Normalize RPYXYZ'''
+    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 6.282581652723159, 0.07379719803660256, 6.282196556258313]
+    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -6.2823649683145195, -0.0828057514170557, -6.282372246787359]
+    tx, ty, tz, roll, pitch, yaw = odom[0],odom[1],odom[2],odom[3],odom[4],odom[5]
+    tx = np.interp(tx, (min_diffs[0], max_diffs[0]), (0,1))
+    ty = np.interp(ty, (min_diffs[1], max_diffs[1]), (0,1))
+    tz = np.interp(tz, (min_diffs[2], max_diffs[2]), (0,1))
+    roll = np.interp(roll, (min_diffs[3], max_diffs[3]), (0,1))
+    pitch = np.interp(pitch, (min_diffs[4], max_diffs[4]), (0,1))
+    yaw = np.interp(yaw, (min_diffs[5], max_diffs[5]), (0,1))
+    
+    normalized_odom=[tx, ty, tz, roll, pitch, yaw]
+    
+    return normalized_odom
+
+def denormalize(odom):
+    '''Denormalize RPYXYZ'''
+    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 6.282581652723159, 0.07379719803660256, 6.282196556258313]
+    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -6.2823649683145195, -0.0828057514170557, -6.282372246787359]
+    tx, ty, tz, roll, pitch, yaw = odom[0],odom[1],odom[2],odom[3],odom[4],odom[5]
+    tx = np.interp(tx, (0,1), (min_diffs[0], max_diffs[0]))
+    ty = np.interp(ty, (0,1), (min_diffs[1], max_diffs[1]))
+    tz = np.interp(tz, (0,1), (min_diffs[2], max_diffs[2]))
+    roll = np.interp(roll, (0,1), (min_diffs[3], max_diffs[3]))
+    pitch = np.interp(pitch, (0,1), (min_diffs[4], max_diffs[4]))
+    yaw = np.interp(yaw, (0,1), (min_diffs[5], max_diffs[5]))
+    
+    denormalized_odom=[tx, ty, tz, roll, pitch, yaw]
     
     return denormalized_odom
     
@@ -270,12 +456,12 @@ if __name__=='__main__':
     test_data=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=135)
     test_data=test_data.reshape((2,3))
 
-    print('Maxes')
-    x,y,z,r,p,yaw=get_maxes()
+    print('Max Diffs')
+    x,y,z,r,p,yaw=get_max_diffs()
     print(x,y,z,r,p,yaw)
     
-    print('Mins')
-    x,y,z,r,p,yaw=get_mins()
+    print('Min Diffs')
+    x,y,z,r,p,yaw=get_min_diffs()
     print(x,y,z,r,p,yaw)
     
     
