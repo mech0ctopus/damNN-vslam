@@ -279,23 +279,26 @@ def get_max_diff(sequence_id):
             current_y=current_data[7]
             current_z=current_data[11]
             
-            r11=current_data[0]
-            r21=current_data[4]
-            r31=current_data[8]
-            r32=current_data[9]
-            r33=current_data[10]
+            current_r11=current_data[0]
+            current_r21=current_data[4]
+            current_r31=current_data[8]
+            current_r32=current_data[9]
+            current_r33=current_data[10]
             
-            current_roll=atan2(r32,r33)
-            current_pitch=atan2(-r31,sqrt((r32**2)+(r33**2)))
-            current_yaw=atan2(r21,r11)
+            # current_roll=atan2(r32,r33)
+            # current_pitch=atan2(-r31,sqrt((r32**2)+(r33**2)))
+            # current_yaw=atan2(r21,r11)
 
             if idx>0:
                 current_x_diff=current_x-prev_x
                 current_y_diff=current_y-prev_y
                 current_z_diff=current_z-prev_z
-                current_r_diff=current_roll-prev_roll
-                current_p_diff=current_pitch-prev_pitch
-                current_yaw_diff=current_yaw-prev_yaw
+                # current_r_diff=current_roll-prev_roll
+                # current_p_diff=current_pitch-prev_pitch
+                # current_yaw_diff=current_yaw-prev_yaw
+                current_r_diff=atan2(current_r32-prev_r32,current_r33-prev_r33)
+                current_p_diff=atan2(-(current_r31-prev_r31),sqrt(((current_r32-prev_r32)**2)+((current_r33-prev_r33)**2)))
+                current_yaw_diff=atan2((current_r21-prev_r21),(current_r11-prev_r11))
 
                 if max_x_diff==None or current_x_diff>max_x_diff:
                     max_x_diff=current_x_diff
@@ -310,8 +313,10 @@ def get_max_diff(sequence_id):
                 if max_yaw_diff==None or current_yaw_diff>max_yaw_diff:
                     max_yaw_diff=current_yaw_diff
                     
+            prev_r11, prev_r21 = current_r11, current_r21
+            prev_r31, prev_r32, prev_r33 = current_r31, current_r32, current_r33
             prev_x, prev_y, prev_z=current_x, current_y, current_z
-            prev_roll, prev_pitch, prev_yaw=current_roll, current_pitch, current_yaw
+            #prev_roll, prev_pitch, prev_yaw=current_roll, current_pitch, current_yaw
             
     return max_x_diff,max_y_diff,max_z_diff,max_r_diff,max_p_diff,max_yaw_diff
 
@@ -364,23 +369,26 @@ def get_min_diff(sequence_id):
             current_y=current_data[7]
             current_z=current_data[11]
             
-            r11=current_data[0]
-            r21=current_data[4]
-            r31=current_data[8]
-            r32=current_data[9]
-            r33=current_data[10]
+            current_r11=current_data[0]
+            current_r21=current_data[4]
+            current_r31=current_data[8]
+            current_r32=current_data[9]
+            current_r33=current_data[10]
             
-            current_roll=atan2(r32,r33)
-            current_pitch=atan2(-r31,sqrt((r32**2)+(r33**2)))
-            current_yaw=atan2(r21,r11)
+            # current_roll=atan2(r32,r33)
+            # current_pitch=atan2(-r31,sqrt((r32**2)+(r33**2)))
+            # current_yaw=atan2(r21,r11)
 
             if idx>0:
                 current_x_diff=current_x-prev_x
                 current_y_diff=current_y-prev_y
                 current_z_diff=current_z-prev_z
-                current_r_diff=current_roll-prev_roll
-                current_p_diff=current_pitch-prev_pitch
-                current_yaw_diff=current_yaw-prev_yaw
+                # current_r_diff=current_roll-prev_roll
+                # current_p_diff=current_pitch-prev_pitch
+                # current_yaw_diff=current_yaw-prev_yaw
+                current_r_diff=atan2(current_r32-prev_r32,current_r33-prev_r33)
+                current_p_diff=atan2(-(current_r31-prev_r31),sqrt(((current_r32-prev_r32)**2)+((current_r33-prev_r33)**2)))
+                current_yaw_diff=atan2((current_r21-prev_r21),(current_r11-prev_r11))
 
                 if min_x_diff==None or current_x_diff<min_x_diff:
                     min_x_diff=current_x_diff
@@ -394,9 +402,11 @@ def get_min_diff(sequence_id):
                     min_p_diff=current_p_diff
                 if min_yaw_diff==None or current_yaw_diff<min_yaw_diff:
                     min_yaw_diff=current_yaw_diff
-                    
+              
+            prev_r11, prev_r21 = current_r11, current_r21
+            prev_r31, prev_r32, prev_r33 = current_r31, current_r32, current_r33
             prev_x, prev_y, prev_z=current_x, current_y, current_z
-            prev_roll, prev_pitch, prev_yaw=current_roll, current_pitch, current_yaw
+            #prev_roll, prev_pitch, prev_yaw=current_roll, current_pitch, current_yaw
             
     return min_x_diff,min_y_diff,min_z_diff,min_r_diff,min_p_diff,min_yaw_diff
 
@@ -422,8 +432,8 @@ def get_min_diffs():
 
 def normalize(odom):
     '''Normalize RPYXYZ'''
-    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 6.282581652723159, 0.07379719803660256, 6.282196556258313]
-    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -6.2823649683145195, -0.0828057514170557, -6.282372246787359]
+    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 3.1415360812792166, 1.5689729640393608, 3.141553708341133]
+    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -3.1414589678596205, -1.5648552779412754, -3.1415283565666408]
     tx, ty, tz, roll, pitch, yaw = odom[0],odom[1],odom[2],odom[3],odom[4],odom[5]
     tx = np.interp(tx, (min_diffs[0], max_diffs[0]), (0,1))
     ty = np.interp(ty, (min_diffs[1], max_diffs[1]), (0,1))
@@ -438,8 +448,8 @@ def normalize(odom):
 
 def denormalize(odom):
     '''Denormalize RPYXYZ'''
-    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 6.282581652723159, 0.07379719803660256, 6.282196556258313]
-    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -6.2823649683145195, -0.0828057514170557, -6.282372246787359]
+    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 3.1415360812792166, 1.5689729640393608, 3.141553708341133]
+    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -3.1414589678596205, -1.5648552779412754, -3.1415283565666408]
     tx, ty, tz, roll, pitch, yaw = odom[0],odom[1],odom[2],odom[3],odom[4],odom[5]
     tx = np.interp(tx, (0,1), (min_diffs[0], max_diffs[0]))
     ty = np.interp(ty, (0,1), (min_diffs[1], max_diffs[1]))
