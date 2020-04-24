@@ -338,7 +338,7 @@ def get_max_diffs():
             max_p_diff=current_p_diff
         if current_yaw_diff>max_yaw_diff:
             max_yaw_diff=current_yaw_diff
-    return max_x_diff,max_y_diff,max_z_diff,max_r_diff,max_p_diff,max_yaw_diff   
+    return max_r_diff,max_p_diff,max_yaw_diff,max_x_diff,max_y_diff,max_z_diff
 
 def get_min_diff(sequence_id):
     global frame_ids
@@ -428,12 +428,12 @@ def get_min_diffs():
             min_p_diff=current_p_diff
         if current_yaw_diff<min_yaw_diff:
             min_yaw_diff=current_yaw_diff
-    return min_x_diff,min_y_diff,min_z_diff,min_r_diff,min_p_diff,min_yaw_diff 
+    return min_r_diff,min_p_diff,min_yaw_diff,min_x_diff,min_y_diff,min_z_diff
 
 def normalize(odom):
     '''Normalize RPYXYZ'''
-    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 3.1415360812792166, 1.5689729640393608, 3.141553708341133]
-    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -3.1414589678596205, -1.5648552779412754, -3.1415283565666408]
+    max_diffs=[3.1415360812792166, 1.5689729640393608, 3.141553708341133,2.425999999999931, 0.2665500000000005, 1.5289750000000002]
+    min_diffs=[-3.1414589678596205, -1.5648552779412754, -3.1415283565666408,-1.70900000000006, -0.19907300000000028, -0.010032000000000707]
     tx, ty, tz, roll, pitch, yaw = odom[0],odom[1],odom[2],odom[3],odom[4],odom[5]
     tx = np.interp(tx, (min_diffs[0], max_diffs[0]), (0,1))
     ty = np.interp(ty, (min_diffs[1], max_diffs[1]), (0,1))
@@ -442,14 +442,14 @@ def normalize(odom):
     pitch = np.interp(pitch, (min_diffs[4], max_diffs[4]), (0,1))
     yaw = np.interp(yaw, (min_diffs[5], max_diffs[5]), (0,1))
     
-    normalized_odom=[tx, ty, tz, roll, pitch, yaw]
+    normalized_odom=np.array([roll, pitch, yaw, tx, ty, tz])
     
     return normalized_odom
 
 def denormalize(odom):
     '''Denormalize RPYXYZ'''
-    max_diffs=[2.425999999999931, 0.2665500000000005, 1.5289750000000002, 3.1415360812792166, 1.5689729640393608, 3.141553708341133]
-    min_diffs=[-1.70900000000006, -0.19907300000000028, -0.010032000000000707, -3.1414589678596205, -1.5648552779412754, -3.1415283565666408]
+    max_diffs=[3.1415360812792166, 1.5689729640393608, 3.141553708341133,2.425999999999931, 0.2665500000000005, 1.5289750000000002,-1.70900000000006, -0.19907300000000028, -0.010032000000000707]
+    min_diffs=[-3.1414589678596205, -1.5648552779412754, -3.1415283565666408]
     tx, ty, tz, roll, pitch, yaw = odom[0],odom[1],odom[2],odom[3],odom[4],odom[5]
     tx = np.interp(tx, (0,1), (min_diffs[0], max_diffs[0]))
     ty = np.interp(ty, (0,1), (min_diffs[1], max_diffs[1]))
@@ -458,21 +458,24 @@ def denormalize(odom):
     pitch = np.interp(pitch, (0,1), (min_diffs[4], max_diffs[4]))
     yaw = np.interp(yaw, (0,1), (min_diffs[5], max_diffs[5]))
     
-    denormalized_odom=[tx, ty, tz, roll, pitch, yaw]
+    denormalized_odom=np.array([roll, pitch, yaw, tx, ty, tz])
     
     return denormalized_odom
     
 if __name__=='__main__':
     test_data=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=135)
-    test_data=test_data.reshape((2,3))
+    test2_data=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=134)
+    # test_data=test_data.reshape((2,3))
+    print('Actual RPYXYZ:')
+    print(test_data-test2_data)
 
     print('Max Diffs')
-    x,y,z,r,p,yaw=get_max_diffs()
-    print(x,y,z,r,p,yaw)
+    r,p,yaw,x,y,z=get_max_diffs()
+    print(r,p,yaw,x,y,z)
     
     print('Min Diffs')
-    x,y,z,r,p,yaw=get_min_diffs()
-    print(x,y,z,r,p,yaw)
+    r,p,yaw,x,y,z=get_min_diffs()
+    print(r,p,yaw,x,y,z)
     
     
 
