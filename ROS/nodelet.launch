@@ -1,0 +1,32 @@
+<!-- Convert the depth image and the rgb image into a xyzrgb Point Cloud -->
+<launch>
+    <!-- Static map to base_link transform -->
+    <node pkg="tf" type="static_transform_publisher" name="base_to_cam_broadcaster" args="0 0 0 -1.57 0 -1.57 base_link camera_link 100" />
+
+    <!-- Decompress image -->
+    <node name="republish" type="republish" pkg="image_transport" output="screen" args="compressed in:=/raspicam_node/image out:=/raspicam_node/image_rgb" />
+"
+
+    <!-- Nodelet manager for this pipeline -->
+    <node pkg="nodelet" type="nodelet" args="manager" name="standalone_nodelet" output="screen"/>
+
+    <!-- Convert to point cloud -->
+    <node pkg="nodelet" type="nodelet" name="depth_image_proc" args="load depth_image_proc/point_cloud_xyzrgb standalone_nodelet" output="screen">
+
+        <!-- Input: Camera calibration and metadata.  (sensor_msgs/CameraInfo) -->
+        <remap from="rgb/camera_info" to="rgb_pub_cal" /> <!--rgb_info-->
+
+        <!-- Input: Rectified color image. (sensor_msgs/Image) -->
+        <remap from="rgb/image_rect_color" to="rgb_image"/> <!--rgb_image-->
+
+        <!-- Input: Rectified depth image, registered to the RGB camera. (sensor_msgs/Image) -->
+        <remap from="depth_registered/image_rect" to="depth_image"/> <!--depth_image-->
+
+        <!-- Output: XYZ point cloud. If using PCL, subscribe as PointCloud<PointXYZ>.  (sensor_msgs/PointCloud2)  -->
+        <remap from="depth_registered/points" to="depth_registered/points"/>
+
+    </node>
+
+    <!-- Launch RViz -->
+    <node type="rviz" name="rviz" pkg="rviz" />
+</launch>
