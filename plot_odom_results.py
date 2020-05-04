@@ -18,7 +18,7 @@ def load_model():
     model_name='parallel_unets_with_tf'
     losses = {'depth_output': 'mean_squared_error',
               "vo_output": 'mean_squared_logarithmic_error'}
-    model.load_weights(f"{model_name}_weights_best.hdf5")
+    model.load_weights(r"C:\Users\Craig\Documents\GitHub\damNN-vslam\parallel_unets_with_tf_weights_best_50Epochs.hdf5")
     model.compile(loss=losses,optimizer=Adam(lr=5e-6))
     return model
 
@@ -64,9 +64,11 @@ def get_actual_odom(image1_path,image2_path):
 def build_results(model, val_path):
     image_list=glob(val_path+'*.png')
     idx=1
-    predicted_results=np.zeros((len(image_list),6),dtype=np.float64)
-    actual_results=np.zeros((len(image_list),6),dtype=np.float64)
-    while idx<101: #len(image_list):
+    # predicted_results=np.zeros((len(image_list),6),dtype=np.float64)
+    # actual_results=np.zeros((len(image_list),6),dtype=np.float64)
+    predicted_results=np.zeros((400,6),dtype=np.float64)
+    actual_results=np.zeros((400,6),dtype=np.float64)
+    while idx<401: #len(image_list):
         image1, image2 = image_list[idx], image_list[idx-1]
         predicted_results[idx-1]=predict_odom(image1,image2,model)
         actual_results[idx-1]=get_actual_odom(image1,image2)
@@ -77,8 +79,8 @@ def build_results(model, val_path):
 def plot_result(predicted_results,actual_results,idx,name):
     '''Plots result along one axis.'''
     plt.figure(idx)
-    plt.plot(predicted_results[0:100,idx])
-    plt.plot(actual_results[0:100,idx])
+    plt.plot(predicted_results[0:400,idx])
+    plt.plot(actual_results[0:400,idx])
     plt.title(f'{name}: Predicted vs. Actual')
     if name.lower() in ['roll','pitch','yaw']:
         plt.ylabel('Radians')
@@ -93,14 +95,14 @@ def plot_results(predicted_results,actual_results):
     names=['Roll','Pitch','Yaw','X','Y','Z']
     for idx, name in enumerate(names):
         plot_result(predicted_results,actual_results,idx,name)
-    
+        
 def plot_3d_path(predicted_results,actual_results):
     '''Plots 3D Vehicle Path.'''
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure(7)
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(predicted_results[:,0], predicted_results[:,1], predicted_results[:,2])
-    ax.scatter(actual_results[:,0], actual_results[:,1], actual_results[:,2])
+    ax.scatter(predicted_results[:,3], predicted_results[:,4], predicted_results[:,5])
+    ax.scatter(actual_results[:,3], actual_results[:,4], actual_results[:,5])
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
@@ -111,5 +113,36 @@ if __name__=='__main__':
     val_path=r"G:\Documents\KITTI\data\val\X\\"
     predicted_results, actual_results=build_results(model, val_path)
     plot_results(predicted_results,actual_results)
-    plot_3d_path(predicted_results,actual_results)
+    #plot_3d_path(predicted_results,actual_results)
     
+    #Save data to text files
+    np.savetxt(r'predicted_results_deepvo.txt',predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')
+    np.savetxt(r'actual_results.txt',actual_results,header='Roll, Pitch, Yaw, X, Y, Z')
+    
+    #Adjust predicted data based on actual means
+    actual_means=np.mean(actual_results,axis=0,dtype=np.float64)
+    predicted_means=np.mean(predicted_results,axis=0,dtype=np.float64)
+    #Initialize adjusted results
+    adj_predicted_results=predicted_results
+    #Adjust each parameter
+    for i in range(6):
+        adj_predicted_results[:,i]=adj_predicted_results[:,i]-predicted_means[i]+actual_means[i]
+    #Save adjusted results
+    np.savetxt(r'adjusted_predicted_results_deepvo.txt',adj_predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')
+    #Plot adjusted results
+    #plot_results(adj_predicted_results,actual_results)
+    
+    #Adjust predicted data based on scale
+    actual_maxes=np.max(actual_results,axis=0)
+    actual_mins=np.min(actual_results,axis=0)
+    pred_maxes=np.max(predicted_results,axis=0)
+    pred_mins=np.min(predicted_results,axis=0)
+    
+    scaled_predicted_results=predicted_results
+    scaled_actual_results=actual_results
+    for i in range(6):
+        scaled_predicted_results[:,i]=np.interp(scaled_predicted_results[:,i], (pred_mins[i],pred_maxes[i]), (0,1))
+        scaled_actual_results[:,i]=np.interp(scaled_actual_results[:,i], (actual_mins[i],actual_maxes[i]), (0,1))
+    
+    #plot_results(scaled_predicted_results,scaled_actual_results)
+    #plot_3d_path(scaled_predicted_results,scaled_actual_results)
