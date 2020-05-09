@@ -31,5 +31,5 @@ def resize_images(input_image_folderpath,size=(640,192)):
 		resize_image(input_image,out_filename,size=(size[0],size[1]))
  
 if __name__ == '__main__':
-    input_image_folderpath = r"G:\Documents\KITTI\raw_data\Depth\2011_09_30_drive_0018_sync\colorized"
+    input_image_folderpath = r"G:\Documents\KITTI\raw_data\Depth\2011_09_30_drive_0028_sync\colorized"
     resize_images(input_image_folderpath, size=(640,192))
