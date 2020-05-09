@@ -361,7 +361,3 @@ if __name__=='__main__':
     print('Min Diffs')
     r,p,yaw,x,y,z=get_min_diffs()
     print(r,p,yaw,x,y,z)
-    
-    
-
-        
