@@ -86,6 +86,8 @@ def DenseBlock(input_shape = (4320,1)):
     model.add(Dropout(0.5))
     model.add(Dense(288, activation='relu'))
     model.add(Dropout(0.5))
+    model.add(Dense(288, activation='relu'))
+    model.add(Dropout(0.5))
     #New
     model.add(Dense(288, activation='relu'))
     model.add(Dropout(0.5))
@@ -104,10 +106,10 @@ def DenseBlock(input_shape = (4320,1)):
     model.add(Dropout(0.5))
     model.add(Dense(72, activation='relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(72, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(36, activation='relu'))
-    model.add(Dropout(0.5))
+    # model.add(Dense(72, activation='relu'))
+    # model.add(Dropout(0.5))
+    # model.add(Dense(36, activation='relu'))
+    # model.add(Dropout(0.5))
     return model
 
 def wnet_connected():   
@@ -138,6 +140,20 @@ def wnet_connected():
     
     return wnet_c
 
+def cnn_new(input_shape=(192,640,4)):
+    '''Define CNN model'''
+    model = Sequential()
+    model.add(Convolution2D(filters=16, kernel_size=7, strides=(2,2), padding='valid', input_shape=input_shape,activation=PReLU()))
+    model.add(Convolution2D(filters=32, kernel_size=5, strides=(2,2), padding='same', activation=PReLU()))
+    model.add(Convolution2D(filters=64, kernel_size=5, strides=(2,2), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=128, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=256, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=256, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
+    model.add(Flatten())
+
+    return model
+
 def parallel_unets_with_tf(input_shape=(192,640,3)):
     '''Define Parallel U-Nets model.'''
     #Define input size
@@ -155,7 +171,7 @@ def parallel_unets_with_tf(input_shape=(192,640,3)):
     # unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output)
     
     #Load unet weights from depth-only pretraining
-    wnet_c.load_weights(r"C:\Users\Craig\Documents\GitHub\depth-estimation\W-Net_Connected_weights_best_KITTI_35Epochs.hdf5")
+    wnet_c.load_weights(r"G:\WPI\Courses\2019\Deep Learning for Advanced Robot Perception, RBE595\Project\VEHITS\W-Net_Connected_weights_best_KITTI_35Epochs.hdf5")
     for layer in wnet_c.layers:
         layer.trainable=False
     
@@ -165,39 +181,49 @@ def parallel_unets_with_tf(input_shape=(192,640,3)):
 
     depth_out=Flatten(name='depth_output')(wnet_c_1_out)
     
-    wnet_c_1_out=Reshape((192,640,1))(wnet_c_1_out)
-    wnet_c_2_out=Reshape((192,640,1))(wnet_c_2_out)
+    wnet_c_1_out=Reshape((192,640,1))(wnet_c_1_out) #Depth at t
+    wnet_c_2_out=Reshape((192,640,1))(wnet_c_2_out) #Depth at t-1
     
     #Merge unet outputs
     rbgd1=Concatenate()([input_1,wnet_c_1_out])
     rbgd2=Concatenate()([input_2,wnet_c_2_out])
     
+    both_rgbds=Concatenate()([rbgd1,rbgd2])
     #Create transform branch for predicting rpy/xyz odom matrix/Networks for VO
-    tf_cnn_t_1=cnn4()(rbgd1) #t
-    tf_cnn_t_2=cnn4()(rbgd2) #t-1
+    # tf_cnn_t_1=cnn4(input_shape=(192,640,1))(wnet_c_1_out) #t
+    # tf_cnn_t_2=cnn4(input_shape=(192,640,1))(wnet_c_2_out) #t-1
+    cnn_both=cnn4(input_shape=(192,640,8))(both_rgbds)
     
-    flatten1=Flatten()(tf_cnn_t_1)
-    flatten2=Flatten()(tf_cnn_t_2)
-    dense_block1=DenseBlock(input_shape=(flatten1.shape[0],1))(flatten1)
-    dense_block2=DenseBlock(input_shape=(flatten2.shape[0],1))(flatten2)
+    # flatten1=Flatten()(tf_cnn_t_1)
+    # flatten2=Flatten()(tf_cnn_t_2)
+    # dense_block1=DenseBlock(input_shape=(flatten1.shape[0],1))(flatten1)
+    # dense_block2=DenseBlock(input_shape=(flatten2.shape[0],1))(flatten2)
+    #dense_block=DenseBlock(input_shape=(cnn_both.shape[0],1))(cnn_both)
 
     #Merge VO CNN ouputs
     #merged2=Concatenate()([tf_cnn_t_1,tf_cnn_t_2])
-    merged2=Concatenate()([dense_block1,dense_block2])
+    #merged2=Concatenate()([dense_block1,dense_block2])
     # flatten2=Flatten()(merged2)
     # print(flatten2.shape[0])
     # dense_block1=DenseBlock(input_shape=(flatten2.shape[0],1))(flatten2)
     
     #reshape=Reshape((2,tf_cnn_t_1.shape[1]))(merged2)
-    reshape=Reshape((2,dense_block1.shape[1]))(merged2)
-    lstm1=LSTM(512,return_sequences=True)(reshape) #128
-    lstm2=LSTM(512,return_sequences=False)(lstm1) #256
+    # reshape=Reshape((2,dense_block1.shape[1]))(merged2)
+    # lstm1=LSTM(128,return_sequences=True)(reshape) #128
+    # lstm2=LSTM(256,return_sequences=False)(lstm1) #256
     
-    dense2=Dense(128, activation=PReLU())(lstm2)
-    transform=Dense(6,activation='linear',name='vo_output')(dense2) #RPYXYZ
+    dense1=DenseBlock(input_shape=(cnn_both.shape[0],1))(cnn_both)
+    # dense2=Dense(512, activation=PReLU())(dense1)
+    # dense3=Dense(128, activation=PReLU())(dense2)
+    rpy_output=Dense(3,activation='linear',name='rpy_output')(dense1) #RPY
+ 
+    dense4=DenseBlock(input_shape=(cnn_both.shape[0],1))(cnn_both)
+    # dense5=Dense(512, activation=PReLU())(dense4)
+    # dense6=Dense(128, activation=PReLU())(dense5)
+    xyz_output=Dense(3,activation='linear',name='xyz_output')(dense4) #XYZ
     
     #Define inputs and outputs    
-    model = Model(inputs=[input_1,input_2], outputs=[depth_out,transform])
+    model = Model(inputs=[input_1,input_2], outputs=[depth_out,rpy_output,xyz_output])
     model.layers[2].trainable=False
     
     return model
@@ -206,7 +232,7 @@ if __name__=='__main__':
     model=parallel_unets_with_tf()
     print(model)
     model.summary()
-    plot_model(model, to_file='parallel_unets_with_tf.png', 
+    plot_model(model, to_file='parallel_unets_with_tf_depthonly.png', 
                 show_shapes=True, 
                 show_layer_names=False, 
                 rankdir='TB',  #LR or TB for vertical or horizontal

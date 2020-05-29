@@ -45,7 +45,8 @@ def main(model_name, model, num_epochs, batch_size):
     
     #Define losses for each output
     losses = {'depth_output': 'mean_squared_error',
-              "vo_output": 'mean_squared_logarithmic_error'} #mean_squared_logarithmic_error
+              "rpy_output": 'mean_squared_logarithmic_error', #mean_squared_logarithmic_error
+              "xyz_output": 'mean_squared_logarithmic_error'} #mean_squared_logarithmic_error
     #model.load_weights(r"parallel_unets_with_tf_weights_best.hdf5")
     model.compile(loss=losses,optimizer=Adam(lr=5e-6)) #, options = run_opts) #1e-6
     #lr=5e-6
@@ -79,25 +80,25 @@ if __name__=='__main__':
     model=models.parallel_unets_with_tf
     model_name='parallel_unets_with_tf'
     model=main(model_name=model_name,model=model,
-               num_epochs=50,batch_size=4)
+               num_epochs=25,batch_size=2)
     show_test_image=True
     
     #Save model
-    save_model(model,serialize_type='yaml',
-                          model_name=f'{model_name}_kitti_model',
-                          save_weights=False)
+    # save_model(model,serialize_type='yaml',
+    #                       model_name=f'{model_name}_kitti_model',
+    #                       save_weights=False)
     
-    save_model(model,serialize_type='json',
-                          model_name=f'{model_name}_kitti_model',
-                          save_weights=False)
+    # save_model(model,serialize_type='json',
+    #                       model_name=f'{model_name}_kitti_model',
+    #                       save_weights=False)
     
     if show_test_image:
         #"G:\Documents\KITTI\data\train\X\2011_09_30_drive_0016_sync_0000000006.png"
         #G:\Documents\KITTI\data\val\X\2011_09_30_drive_0018_sync_0000000135.png"
-        image1_path=r"G:\Documents\KITTI\data\train\X\2011_09_30_drive_0016_sync_0000000006.png"
-        image2_path=r"G:\Documents\KITTI\data\train\X\2011_09_30_drive_0016_sync_0000000005.png"
-        image1_odom=read_odom(sequence_id="2011_09_30_drive_0016",desired_frame=6)
-        image2_odom=read_odom(sequence_id="2011_09_30_drive_0016",desired_frame=5)
+        image1_path=r"G:\Documents\KITTI\data\val\X\2011_09_30_drive_0018_sync_0000000135.png"
+        image2_path=r"G:\Documents\KITTI\data\val\X\2011_09_30_drive_0018_sync_0000000134.png"
+        image1_odom=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=135)
+        image2_odom=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=134)
         
         #Read test image
         image1=rgb_read(image1_path) #640x480, 1242x375
@@ -113,15 +114,15 @@ if __name__=='__main__':
         #Make sure we have best weights
         #Predict depth and [RPY,XYZ]
         model.load_weights(f"{model_name}_weights_best.hdf5")
-        y_est,odom_dt=model.predict([image1,image2])
+        y_est,rpy_est,xyz_est=model.predict([image1,image2])
         y_est=y_est.reshape((192,640))*255 #De-normalize for depth viewing
         #Save/view results
-        heatmap(y_est,save=False,name=f'{image_name}_{model_name}_plasma',cmap='plasma')
+        # heatmap(y_est,save=False,name=f'{image_name}_{model_name}_plasma',cmap='plasma')
         #odom_dt=denormalize(odom_dt.reshape(6))
-        odom_dt=odom_dt.reshape(6)
-        odom_dt=odom_dt.reshape((2,3))
+        # odom_dt=odom_dt.reshape(6)
+        # odom_dt=odom_dt.reshape((2,3))
         print('Predicted RPYXYZ:')
-        print(odom_dt)
+        print([rpy_est,xyz_est])
         
         odom_dt_actual=image1_odom-image2_odom
         odom_dt_actual=odom_dt_actual.reshape((2,3))

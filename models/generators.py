@@ -25,6 +25,8 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             y_train_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
             y_train_odom=np.zeros((batchSize,6),dtype=np.float64)   #dt odom
+            y_rpy=np.zeros((batchSize,3),dtype=np.float64)   
+            y_xyz=np.zeros((batchSize,3),dtype=np.float64)  
 
             for i in range(batchSize):
                 #Load images
@@ -52,9 +54,10 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
                 # print('Train: '+f'{sequence_id}, {prev_sequence_id}')
                 # print('Train: '+f'{frame_id}, {prev_frame_id}')
                 
-                y_train_odom[i]=normalize(current_odom-prev_odom)
-                #y_train_odom[i]=current_odom-prev_odom
-
+                # y_train_odom[i]=normalize(current_odom-prev_odom)
+                y_train_odom[i]=current_odom-prev_odom
+                y_rpy[i]=y_train_odom[i][0:3]
+                y_xyz[i]=y_train_odom[i][3:6]
     
             #Reshape [samples][width][height][pixels]
             X_train_1 = X_train_1.reshape(X_train_1.shape[0], X_train_1.shape[1], 
@@ -70,7 +73,7 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train_2=np.divide(X_train_2,255).astype(np.float16)
             y_train_depth=np.divide(y_train_depth,255).astype(np.float16)
             
-            #if (idx % 36)==0:
+            # if (idx % 68)==0:
             print(str(idx)+'/'+str(len(X_filelist)))
                 
             idx+=batchSize
@@ -80,8 +83,9 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             
             #Provide both images [time=t, time(t-1)]
             X_train=[X_train_1, X_train_2]
+            
             #Provide depth and odom
-            y_train=[y_train_depth, y_train_odom]
+            y_train=[y_train_depth, y_rpy, y_xyz]
             
             #print('Train: '+str(y_train_depth.shape)+','+str(y_train_odom.shape))
             
@@ -105,6 +109,8 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             X_val_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             y_val_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
             y_val_odom=np.zeros((batchSize,6),dtype=np.float64)   #dt odom
+            y_val_rpy=np.zeros((batchSize,3),dtype=np.float64)   
+            y_val_xyz=np.zeros((batchSize,3),dtype=np.float64)  
 
             for i in range(batchSize):
                 #Load images
@@ -130,8 +136,10 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
                 prev_odom=read_odom(prev_sequence_id, prev_frame_id)
                 #print('Val: '+f'{frame_id}, {prev_frame_id}')
                 
-                y_val_odom[i]=normalize(current_odom-prev_odom)
-                #y_val_odom[i]=current_odom-prev_odom
+                # y_val_odom[i]=normalize(current_odom-prev_odom)
+                y_val_odom[i]=current_odom-prev_odom
+                y_val_rpy[i]=y_val_odom[i][0:3]
+                y_val_xyz[i]=y_val_odom[i][3:6]
                 
             #Reshape [samples][width][height][pixels]
             X_val_1 = X_val_1.reshape(X_val_1.shape[0], X_val_1.shape[1], 
@@ -147,7 +155,7 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             X_val_2=np.divide(X_val_2,255).astype(np.float16)
             y_val_depth=np.divide(y_val_depth,255).astype(np.float16)
             
-            #if (idx % 36)==0: #1024
+            # if (idx % 68)==0: #1024
             print(str(idx)+'/'+str(len(X_val_filelist)))
                 
             idx+=batchSize
@@ -157,8 +165,10 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             
             #Provide both images [time=t, time(t-1)]
             X_val=[X_val_1, X_val_2]
+
+            
             #Provide depth and odom
-            y_val=[y_val_depth, y_val_odom]
+            y_val=[y_val_depth, y_val_rpy, y_val_xyz]
             
             #print('Val: '+str(y_val_depth.shape)+','+str(y_val_odom.shape))
             
