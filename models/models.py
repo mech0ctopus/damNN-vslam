@@ -171,7 +171,7 @@ def parallel_unets_with_tf(input_shape=(192,640,3)):
     # unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output)
     
     #Load unet weights from depth-only pretraining
-    wnet_c.load_weights(r"G:\WPI\Courses\2019\Deep Learning for Advanced Robot Perception, RBE595\Project\VEHITS\W-Net_Connected_weights_best_KITTI_35Epochs.hdf5")
+    wnet_c.load_weights(r"models/W-Net_Connected_weights_best_KITTI_35Epochs.hdf5")
     for layer in wnet_c.layers:
         layer.trainable=False
     
@@ -228,11 +228,35 @@ def parallel_unets_with_tf(input_shape=(192,640,3)):
     
     return model
 
+def mock_deepvo(input_shape=(192,640,3)):
+    '''Replicate DeepVO model.'''
+    #Define input size
+    input_1=Input(input_shape) #Image at time=t
+    input_2=Input(input_shape) #Image at time=(t-1)
+    #Stack input images
+    stacked_images=Concatenate()([input_1,input_2])
+    
+    #Pass through CNN together (Is the padding the same as deepvo?)
+    #Should this be pre-trained from flownet?
+    cnn_out=cnn4(input_shape=(192,640,6))(stacked_images)
+    reshaped_cnn_out=Reshape((1,3*10*1024))(cnn_out)
+    
+    #Pass through LSTM layers
+    lstm1=LSTM(512,return_sequences=True)(reshaped_cnn_out) #Should be 1000
+    lstm2=LSTM(512,return_sequences=False)(lstm1) #Should be 1000
+    
+    rpyxyz_output=Dense(6,activation='linear',name='rpyxyz_output')(lstm2)
+    
+    #Define inputs and output
+    model = Model(inputs=[input_1,input_2], outputs=rpyxyz_output)
+    
+    return model
+  
 if __name__=='__main__':
-    model=parallel_unets_with_tf()
+    model=mock_deepvo()
     print(model)
     model.summary()
-    plot_model(model, to_file='parallel_unets_with_tf_depthonly.png', 
+    plot_model(model, to_file='mock_deepvo.png', 
                 show_shapes=True, 
                 show_layer_names=False, 
                 rankdir='TB',  #LR or TB for vertical or horizontal
