@@ -4,9 +4,9 @@ from glob import glob
 from utils.deep_utils import rgb_read
 from models import models
 from models.vo_generators import _batchGenerator, _valBatchGenerator
-from models.losses import deepvo_mse
+from models.losses import undeepvo_rpy_mse, undeepvo_xyz_mse, deepvo_mse
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
-from tensorflow.keras.optimizers import Adagrad
+from tensorflow.keras.optimizers import Adagrad, Adam
 import datetime
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
@@ -39,7 +39,12 @@ def main(model_name, model, num_epochs, batch_size):
     y_val_filelist=glob(y_val_folderpath+'*.png')
     
     model=model()
-
+    # losses={'rpy_output':undeepvo_xyz_mse,
+    #         'xyz_output':undeepvo_rpy_mse}
+    
+    #DeepVO uses Adagrad(0.001)
+    # model.load_weights(r"20200626-215933_mock_deepvo_weights_best.hdf5")
+    # model.compile(loss=losses,optimizer=Adagrad(0.001))
     model.compile(loss=deepvo_mse,optimizer=Adagrad(0.001))
     
     #Save best model weights checkpoint
@@ -66,10 +71,10 @@ def main(model_name, model, num_epochs, batch_size):
     return model
     
 if __name__=='__main__':
-    model=models.mock_deepvo
-    model_name='mock_deepvo'
+    model=models.mock_deepvo2
+    model_name='mock_deepvo2'
     model=main(model_name=model_name,model=model,
-               num_epochs=5,batch_size=2)
+               num_epochs=50,batch_size=32)
     show_test_image=True
     
     if show_test_image:

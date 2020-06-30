@@ -4,12 +4,28 @@ Final Models.
 """
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.layers import Concatenate, Dense, Convolution2D, MaxPooling2D
-from tensorflow.keras.layers import Flatten, Input, Reshape, Dropout, LSTM
+from tensorflow.keras.layers import Concatenate, Dense, Convolution2D, MaxPooling2D, Conv3D
+from tensorflow.keras.layers import Flatten, Input, Reshape, Dropout, LSTM, LSTMCell
 import segmentation_models
 from tensorflow.keras.layers import PReLU
+from tensorflow import stack, squeeze
+import numpy as np
+import cv2 as cv
 
 segmentation_models.set_framework('tf.keras')
+
+def get_optical_flow(frame1,frame2):
+    prvs = cv.cvtColor(frame1,cv.COLOR_BGR2GRAY)
+    hsv = np.zeros_like(frame1)
+    hsv[...,1] = 255
+    
+    next = cv.cvtColor(frame2,cv.COLOR_BGR2GRAY) 
+    flow = cv.calcOpticalFlowFarneback(prvs,next, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+    mag, ang = cv.cartToPolar(flow[...,0], flow[...,1])
+    hsv[...,0] = ang*180/np.pi/2
+    hsv[...,2] = cv.normalize(mag,None,0,255,cv.NORM_MINMAX)
+    bgr = cv.cvtColor(hsv,cv.COLOR_HSV2BGR)
+    return bgr
 
 def unet(input_shape=(192,640,3)):
     '''Define U-Net model.'''
@@ -66,16 +82,32 @@ def parallel_unets(input_shape=(192,640,3)): #375,1242 TODO: Need to update dim 
 def cnn4(input_shape=(192,640,4)):
     '''Define CNN model'''
     model = Sequential()
-    model.add(Convolution2D(filters=64, kernel_size=7, strides=(2,2), padding='valid', input_shape=input_shape,activation=PReLU()))
-    model.add(Convolution2D(filters=128, kernel_size=5, strides=(2,2), padding='same', activation=PReLU()))
-    model.add(Convolution2D(filters=256, kernel_size=5, strides=(2,2), padding='same',activation=PReLU()))
-    model.add(Convolution2D(filters=256, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
-    model.add(Convolution2D(filters=1024, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=64, kernel_size=7, strides=(2,2), padding='valid', input_shape=input_shape,activation='relu'))
+    model.add(Convolution2D(filters=128, kernel_size=5, strides=(2,2), padding='same', activation='relu'))
+    model.add(Convolution2D(filters=256, kernel_size=5, strides=(2,2), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=256, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=1024, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
     model.add(Flatten())
+
+    return model
+
+def cnn_3d(input_shape=(2,192,640,4)):
+    '''Define CNN model'''
+    model = Sequential()
+    model.add(Conv3D(filters=64, kernel_size=7, strides=(2,2,2), padding='valid', input_shape=input_shape,activation=PReLU()))
+    model.add(Conv3D(filters=128, kernel_size=5, strides=(2,2,2), padding='same', activation=PReLU()))
+    model.add(Conv3D(filters=256, kernel_size=5, strides=(2,2,2), padding='same',activation=PReLU()))
+    model.add(Conv3D(filters=256, kernel_size=3, strides=(1,1,1), padding='same',activation=PReLU()))
+    model.add(Conv3D(filters=512, kernel_size=3, strides=(2,2,2), padding='same',activation=PReLU()))
+    model.add(Conv3D(filters=512, kernel_size=3, strides=(1,1,1), padding='same',activation=PReLU()))
+    model.add(Conv3D(filters=512, kernel_size=3, strides=(2,2,2), padding='same',activation=PReLU()))
+    model.add(Conv3D(filters=512, kernel_size=3, strides=(1,1,1), padding='same',activation=PReLU()))
+    model.add(Conv3D(filters=1024, kernel_size=3, strides=(2,2,2), padding='same',activation=PReLU()))
+    # model.add(Flatten())
 
     return model
 
@@ -140,7 +172,7 @@ def wnet_connected():
     
     return wnet_c
 
-def cnn_new(input_shape=(192,640,4)):
+def cnn_new(input_shape=(192,640,6)):
     '''Define CNN model'''
     model = Sequential()
     model.add(Convolution2D(filters=16, kernel_size=7, strides=(2,2), padding='valid', input_shape=input_shape,activation=PReLU()))
@@ -239,6 +271,7 @@ def mock_deepvo(input_shape=(192,640,3)):
     #Pass through CNN together (Is the padding the same as deepvo?)
     #Should this be pre-trained from flownet?
     cnn_out=cnn4(input_shape=(192,640,6))(stacked_images)
+    #Should this be reshaped like (3,10,1024)? or (1,3*10*1024) ?
     reshaped_cnn_out=Reshape((1,3*10*1024))(cnn_out)
     
     #Pass through LSTM layers
@@ -251,10 +284,64 @@ def mock_deepvo(input_shape=(192,640,3)):
     model = Model(inputs=[input_1,input_2], outputs=rpyxyz_output)
     
     return model
-  
+
+def mock_undeepvo(input_shape=(192,640,3)):
+    '''Replicate UnDeepVO model.'''
+    #Define input size
+    input_1=Input(input_shape) #Image at time=t
+    input_2=Input(input_shape) #Image at time=(t-1)
+    #Stack input images
+    stacked_images=Concatenate()([input_1,input_2])
+    
+    #Pass through CNN together (Is the padding the same as deepvo?)
+    #Should this be pre-trained from flownet?
+    cnn_out=cnn_new(input_shape=(192,640,6))(stacked_images)
+    
+    rpy_dense1=Dense(512,activation='relu')(cnn_out)
+    rpy_dense2=Dense(512,activation='relu')(rpy_dense1)
+     
+    xyz_dense1=Dense(512,activation='relu')(cnn_out)
+    xyz_dense2=Dense(512,activation='relu')(xyz_dense1)
+    
+    rpy_output=Dense(3,activation='linear',name='rpy_output')(rpy_dense2)
+    xyz_output=Dense(3,activation='linear',name='xyz_output')(xyz_dense2)
+    
+    #Define inputs and output
+    model = Model(inputs=[input_1,input_2], outputs=[rpy_output,xyz_output])
+    
+    return model
+
+def mock_deepvo2(input_shape=(192,640,3)):
+    '''Replicate DeepVO model.'''
+    #Define input size
+    input_1=Input(input_shape) #Image at time=t
+    input_2=Input(input_shape) #Image at time=(t-1)
+    
+    #Pass through CNN separately (Is the padding the same as deepvo?)
+    #Should this be pre-trained from flownet?
+    # cnn_out_1=cnn4(input_shape=(192,640,3))(input_1)
+    # cnn_out_2=cnn4(input_shape=(192,640,3))(input_2)
+    
+    #Concatenate CNN outputs
+    # cnn_outputs=Concatenate()([cnn_out_1,cnn_out_2])
+    # reshaped_cnn_outputs=Reshape((2,192,640,3))(cnn_outputs)
+    
+    frame1=cv.imread(input_2) #t-1
+    frame2=cv.imread(input_1) #t
+    test=get_optical_flow(frame1, frame2)
+    #Pass through LSTM layers
+    lstm1=LSTM(512,return_sequences=True)(test) #Should be 1000
+    lstm2=LSTM(512,return_sequences=False)(lstm1) #Should be 1000
+    
+    rpyxyz_output=Dense(6,activation='linear',name='rpyxyz_output')(lstm2)
+    
+    #Define inputs and output
+    model = Model(inputs=[input_1,input_2], outputs=rpyxyz_output)
+    
+    return model
+
 if __name__=='__main__':
     model=mock_deepvo()
-    print(model)
     model.summary()
     plot_model(model, to_file='mock_deepvo.png', 
                 show_shapes=True, 

@@ -34,7 +34,7 @@ def read_odom(sequence_id,desired_frame):
     global odom_ids
     global frame_ids
     
-    folderpath=r"G:\Documents\KITTI\raw_data_odometry\poses\\"
+    folderpath=r"raw_data_odometry\poses\\"
     odom_id=odom_ids[sequence_id]
     filepath=folderpath+odom_id+'.txt'
     

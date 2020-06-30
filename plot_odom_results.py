@@ -3,23 +3,24 @@
 Compare predicted vs. ground truth RPYXYZ on validation data.
 """
 from models import models
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adagrad
 from utils.read_odom import read_odom, denormalize
 from utils.deep_utils import rgb_read
 import numpy as np
 from glob import glob
 from os.path import basename
 import matplotlib.pyplot as plt
+from models.losses import deepvo_mse
 
 def load_model():
     '''Load pretrained model.'''
     #Load model
-    model=models.parallel_unets_with_tf()
-    losses = {'depth_output': 'mean_squared_error',
-              "rpy_output": 'mean_squared_logarithmic_error',
-              "xyz_output": 'mean_squared_logarithmic_error'}
-    model.load_weights(r"E:\damNN_Weights\20200526-204922_best.hdf5")
-    model.compile(loss=losses,optimizer=Adam(lr=5e-6))
+    model=models.mock_deepvo()
+    # losses = {'depth_output': 'mean_squared_error',
+    #           "rpy_output": 'mean_squared_logarithmic_error',
+    #           "xyz_output": 'mean_squared_logarithmic_error'}
+    model.load_weights(r"20200627-190824_mock_deepvo_weights_best.hdf5")
+    model.compile(loss=deepvo_mse,optimizer=Adagrad(0.001))
     return model
 
 def normalize_image(image_path):
@@ -35,10 +36,13 @@ def predict_odom(image1_path,image2_path,model):
     image1=normalize_image(image1_path)
     image2=normalize_image(image2_path)
     #Predict relative odometry    
-    _,rpy_dt,xyz_dt=model.predict([image1,image2])
+    # _,rpy_dt,xyz_dt=model.predict([image1,image2])
+    rpyxyz_dt=model.predict([image1,image2])
     #Denormalize
     # odom_dt=denormalize(odom_dt.reshape(6))
-    odom_dt=np.array((rpy_dt,xyz_dt))
+    # odom_dt=np.array((rpy_dt,xyz_dt))
+    odom_dt=rpyxyz_dt
+    #Denormalize
     odom_dt=odom_dt.reshape(6)
     return odom_dt
 
@@ -143,7 +147,7 @@ def plot_overhead(predicted_results,actual_results):
     
 if __name__=='__main__':
     model=load_model()
-    val_path=r"G:\Documents\KITTI\data\val\X\\"
+    val_path=r"data\val\X\\"
     predicted_results, actual_results=build_results(model, val_path)
     plot_results(predicted_results,actual_results)
     plot_overhead(predicted_results,actual_results)

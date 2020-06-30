@@ -25,8 +25,8 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             # y_train_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
             y_train_odom=np.zeros((batchSize,6),dtype=np.float64)   #dt odom
-            # y_rpy=np.zeros((batchSize,3),dtype=np.float64)   
-            # y_xyz=np.zeros((batchSize,3),dtype=np.float64)  
+            y_rpy=np.zeros((batchSize,3),dtype=np.float64)   
+            y_xyz=np.zeros((batchSize,3),dtype=np.float64)  
             y_rpyxyz=np.zeros((batchSize,6),dtype=np.float64) 
             
             for i in range(batchSize):
@@ -57,8 +57,8 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
                 
                 # y_train_odom[i]=normalize(current_odom-prev_odom)
                 y_train_odom[i]=current_odom-prev_odom
-                # y_rpy[i]=y_train_odom[i][0:3]
-                # y_xyz[i]=y_train_odom[i][3:6]
+                y_rpy[i]=y_train_odom[i][0:3]
+                y_xyz[i]=y_train_odom[i][3:6]
                 y_rpyxyz[i]=y_train_odom[i]
     
             #Reshape [samples][width][height][pixels]
@@ -87,8 +87,10 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
             X_train=[X_train_1, X_train_2]
             
             #Provide depth and odom
-            y_train=[y_rpyxyz]
+            # y_train=[y_rpy, y_xyz]
+            y_train=y_rpyxyz
             
+            # print('Train:', y_train)
             #print('Train: '+str(y_train_depth.shape)+','+str(y_train_odom.shape))
             
             yield X_train, y_train
@@ -111,8 +113,8 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
             X_val_2=np.zeros((batchSize,192,640,3),dtype=np.uint8)   #time=t-1
             # y_val_depth=np.zeros((batchSize,192,640),dtype=np.uint8)   #time=t depth
             y_val_odom=np.zeros((batchSize,6),dtype=np.float64)   #dt odom
-            # y_val_rpy=np.zeros((batchSize,3),dtype=np.float64)   
-            # y_val_xyz=np.zeros((batchSize,3),dtype=np.float64)  
+            y_val_rpy=np.zeros((batchSize,3),dtype=np.float64)   
+            y_val_xyz=np.zeros((batchSize,3),dtype=np.float64)  
             y_val_rpyxyz=np.zeros((batchSize,6),dtype=np.float64) 
             
             for i in range(batchSize):
@@ -141,8 +143,8 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
                 
                 # y_val_odom[i]=normalize(current_odom-prev_odom)
                 y_val_odom[i]=current_odom-prev_odom
-                # y_val_rpy[i]=y_val_odom[i][0:3]
-                # y_val_xyz[i]=y_val_odom[i][3:6]
+                y_val_rpy[i]=y_val_odom[i][0:3]
+                y_val_xyz[i]=y_val_odom[i][3:6]
                 y_val_rpyxyz[i]=y_val_odom[i]
                 
             #Reshape [samples][width][height][pixels]
@@ -172,8 +174,10 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
 
             
             #Provide depth and odom
-            y_val=[y_val_rpyxyz]
+            # y_val=[y_val_rpy, y_val_xyz]
+            y_val=y_val_rpyxyz
             
+            # print('Val:', y_val)
             #print('Val: '+str(y_val_depth.shape)+','+str(y_val_odom.shape))
             
             yield X_val, y_val
