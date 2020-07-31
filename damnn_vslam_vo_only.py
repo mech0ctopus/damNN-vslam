@@ -57,7 +57,7 @@ def main(model_name, model, num_epochs, batch_size):
     
     #Tensorboard setup
     log_dir = f"logs\\{model_name}\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")        
-    tensorboard_callback = TensorBoard(log_dir=log_dir)
+    tensorboard_callback = TensorBoard(log_dir=log_dir, write_images=True)
     
     callbacks_list = [checkpoint, checkpoint2, tensorboard_callback]
     
