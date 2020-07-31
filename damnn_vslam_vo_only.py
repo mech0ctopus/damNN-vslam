@@ -39,24 +39,27 @@ def main(model_name, model, num_epochs, batch_size):
     y_val_filelist=glob(y_val_folderpath+'*.png')
     
     model=model()
-    # losses={'rpy_output':undeepvo_xyz_mse,
-    #         'xyz_output':undeepvo_rpy_mse}
+    losses={'rpy_output':undeepvo_rpy_mse,
+            'xyz_output':undeepvo_xyz_mse}
     
     #DeepVO uses Adagrad(0.001)
-    # model.load_weights(r"20200626-215933_mock_deepvo_weights_best.hdf5")
-    # model.compile(loss=losses,optimizer=Adagrad(0.001))
-    model.compile(loss=deepvo_mse,optimizer=Adagrad(0.001))
+    # model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\Weights\20200714-191625_mock_undeepvo_weights_best.hdf5")
+    model.compile(loss=losses,optimizer=Adam(0.003)) #UnDeepVO uses beta_2=0.99
+    # model.compile(loss=deepvo_mse,optimizer=Adagrad(0.001))
     
     #Save best model weights checkpoint
     filepath=f"{model_name}_weights_best.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
+                                 save_best_only=True, mode='min')
+    filepath2=f"{model_name}_weights_best_trainingloss.hdf5"
+    checkpoint2 = ModelCheckpoint(filepath2, monitor='loss', verbose=1, 
                                  save_best_only=True, mode='min')
     
     #Tensorboard setup
     log_dir = f"logs\\{model_name}\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")        
     tensorboard_callback = TensorBoard(log_dir=log_dir)
     
-    callbacks_list = [checkpoint, tensorboard_callback]
+    callbacks_list = [checkpoint, checkpoint2, tensorboard_callback]
     
     model.fit_generator(_batchGenerator(X_filelist,y_filelist,batch_size),
                         epochs=num_epochs,
@@ -71,10 +74,10 @@ def main(model_name, model, num_epochs, batch_size):
     return model
     
 if __name__=='__main__':
-    model=models.mock_deepvo2
-    model_name='mock_deepvo2'
+    model=models.mock_undeepvo
+    model_name='mock_undeepvo'
     model=main(model_name=model_name,model=model,
-               num_epochs=50,batch_size=32)
+               num_epochs=100,batch_size=32)
     show_test_image=True
     
     if show_test_image:
