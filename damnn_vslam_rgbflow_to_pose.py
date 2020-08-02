@@ -3,7 +3,7 @@
 from glob import glob
 from utils.deep_utils import rgb_read
 from models import models
-from models.vo_generators import _batchGenerator, _valBatchGenerator
+from models.rgb_flow_generators import _batchGenerator, _valBatchGenerator
 from models.losses import undeepvo_rpy_mse, undeepvo_xyz_mse, deepvo_mse
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from tensorflow.keras.optimizers import Adagrad, Adam
@@ -28,14 +28,18 @@ def main(model_name, model, num_epochs, batch_size):
     
     #Build list of training filenames
     X_folderpath=r"data\train\X\\"
+    X_flow_folderpath=r"data\train\flow\\"
     y_folderpath=r"data\train\y\\"
     X_filelist=glob(X_folderpath+'*.png')
+    X_flow_filelist=glob(X_flow_folderpath+'*.png')
     y_filelist=glob(y_folderpath+'*.png')
     
     #Build list of validation filenames
     X_val_folderpath=r"data\val\X\\"
+    X_val_flow_folderpath=r"data\val\flow\\"
     y_val_folderpath=r"data\val\y\\"
     X_val_filelist=glob(X_val_folderpath+'*.png')
+    X_val_flow_filelist=glob(X_val_flow_folderpath+'*.png')
     y_val_filelist=glob(y_val_folderpath+'*.png')
     
     model=model()
@@ -43,8 +47,8 @@ def main(model_name, model, num_epochs, batch_size):
             'xyz_output':undeepvo_xyz_mse}
     
     #DeepVO uses Adagrad(0.001)
-    # model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\Weights\20200714-191625_mock_undeepvo_weights_best.hdf5")
-    model.compile(loss=losses,optimizer=Adam(0.005,beta_2=0.99)) #UnDeepVO uses beta_2=0.99
+    # model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\Weights\mock_undeepvo_withflow_weights_best.hdf5")
+    model.compile(loss=losses,optimizer=Adam(0.001)) #UnDeepVO uses beta_2=0.99
     # model.compile(loss=deepvo_mse,optimizer=Adagrad(0.001))
     
     #Save best model weights checkpoint
@@ -57,14 +61,14 @@ def main(model_name, model, num_epochs, batch_size):
     
     #Tensorboard setup
     log_dir = f"logs\\{model_name}\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")        
-    tensorboard_callback = TensorBoard(log_dir=log_dir, write_images=True)
+    tensorboard_callback = TensorBoard(log_dir=log_dir)
     
     callbacks_list = [checkpoint, checkpoint2, tensorboard_callback]
     
-    model.fit_generator(_batchGenerator(X_filelist,y_filelist,batch_size),
+    model.fit_generator(_batchGenerator(X_filelist,X_flow_filelist,y_filelist,batch_size),
                         epochs=num_epochs,
                         steps_per_epoch=len(X_filelist)//batch_size,
-                        validation_data=_valBatchGenerator(X_val_filelist,y_val_filelist,batch_size),
+                        validation_data=_valBatchGenerator(X_val_filelist,X_val_flow_filelist,y_val_filelist,batch_size),
                         validation_steps=len(X_val_filelist)//batch_size,
                         #validation_freq=1,
                         max_queue_size=1,
@@ -74,10 +78,10 @@ def main(model_name, model, num_epochs, batch_size):
     return model
     
 if __name__=='__main__':
-    model=models.mock_undeepvo
-    model_name='mock_undeepvo'
+    model=models.mock_undeepvo_withflow
+    model_name='mock_undeepvo_withflow'
     model=main(model_name=model_name,model=model,
-               num_epochs=100,batch_size=32)
+               num_epochs=80,batch_size=32)
     show_test_image=True
     
     if show_test_image:
@@ -85,6 +89,7 @@ if __name__=='__main__':
         #"data\val\X\2011_09_30_drive_0018_sync_0000000135.png"
         image1_path=r"data\val\X\2011_09_30_drive_0018_sync_0000000135.png"
         image2_path=r"data\val\X\2011_09_30_drive_0018_sync_0000000134.png"
+        flow_path=r"data\val\flow\2011_09_30_drive_0018_sync_0000000135_flow.png"
         image1_odom=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=135)
         image2_odom=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=134)
         
@@ -98,11 +103,16 @@ if __name__=='__main__':
         image2=image2.reshape(1,192,640,3)
         image2=np.divide(image2,255).astype(np.float16)
         
+        #Read test image
+        flow=rgb_read(flow_path) #640x480
+        flow=flow.reshape(1,192,640,3)
+        flow=np.divide(flow,255).astype(np.float16)  
+        
         image_name=basename(image1_path).split('.')[0]
         #Make sure we have best weights
         #Predict depth and [RPY,XYZ]
         model.load_weights(f"{model_name}_weights_best.hdf5")
-        rpyxyz_est=model.predict([image1,image2])
+        rpyxyz_est=model.predict([image1,image2,flow])
 
         print('Predicted RPYXYZ:')
         print(rpyxyz_est)
@@ -111,4 +121,3 @@ if __name__=='__main__':
         odom_dt_actual=odom_dt_actual.reshape((2,3))
         print('Actual RPYXYZ:')
         print(odom_dt_actual)
-        

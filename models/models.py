@@ -5,7 +5,7 @@ Final Models.
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Concatenate, Dense, Convolution2D, MaxPooling2D, Conv3D
-from tensorflow.keras.layers import Flatten, Input, Reshape, Dropout, LSTM, LSTMCell
+from tensorflow.keras.layers import Flatten, Input, Reshape, Dropout, LSTM, LSTMCell, TimeDistributed
 import segmentation_models
 from tensorflow.keras.layers import PReLU
 from tensorflow import stack, squeeze
@@ -286,7 +286,7 @@ def mock_deepvo(input_shape=(192,640,3)):
     return model
 
 def mock_undeepvo(input_shape=(192,640,3)):
-    '''Replicate UnDeepVO model.'''
+    '''Replicates RGB pose estimate portion of UnDeepVO model.'''
     #Define input size
     input_1=Input(input_shape) #Image at time=t
     input_2=Input(input_shape) #Image at time=(t-1)
@@ -340,10 +340,71 @@ def mock_deepvo2(input_shape=(192,640,3)):
     
     return model
 
+def mock_undeepvo_withflow(input_shape=(192,640,3)):
+    '''Replicates RGB pose estimate portion of UnDeepVO model.'''
+    #Define input size
+    input_1=Input(input_shape) #Image at time=t
+    input_2=Input(input_shape) #Image at time=(t-1)
+    input_3=Input(input_shape) #Optical Flow Image
+    #Stack input images
+    stacked_images=Concatenate()([input_1,input_2,input_3])
+    
+    cnn_out=cnn_new(input_shape=(192,640,9))(stacked_images)
+    
+    rpy_dense1=Dense(512,activation='relu')(cnn_out)
+    rpy_dense2=Dense(512,activation='relu')(rpy_dense1)
+     
+    xyz_dense1=Dense(512,activation='relu')(cnn_out)
+    xyz_dense2=Dense(512,activation='relu')(xyz_dense1)
+    
+    rpy_output=Dense(3,activation='linear',name='rpy_output')(rpy_dense2)
+    xyz_output=Dense(3,activation='linear',name='xyz_output')(xyz_dense2)
+    
+    #Define inputs and output
+    model = Model(inputs=[input_1,input_2,input_3], outputs=[rpy_output,xyz_output])
+    
+    return model
+
+def lvo_cnn(input_shape=(192,640,3)):
+    '''Define CNN model'''
+    model = Sequential()
+    model.add(Convolution2D(filters=64, kernel_size=3, strides=(2,2), 
+                            padding='valid', input_shape=input_shape,
+                            activation='relu'))
+    model.add(Convolution2D(filters=128, kernel_size=3, strides=(2,2), 
+                            padding='same',activation='relu'))
+    model.add(Convolution2D(filters=256, kernel_size=3, strides=(2,2), 
+                            padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), 
+                            padding='same',activation='relu'))
+    model.add(Flatten())
+
+    return model
+
+def vo_from_flow(input_shape=(192,640,3)):
+    '''Replicate UnDeepVO model.'''
+    #Define input size
+    input_1=Input(input_shape) #Optical Flow between t and t-1
+    cnn_out=cnn_new(input_shape)(input_1)
+
+    rpy_dense1=Dense(256,activation='relu')(cnn_out)
+    rpy_dense2=Dense(256,activation='relu')(rpy_dense1)
+     
+    xyz_dense1=Dense(256,activation='relu')(cnn_out)
+    xyz_dense2=Dense(256,activation='relu')(xyz_dense1)
+
+    rpy_output=Dense(3,activation='linear',name='rpy_output')(rpy_dense2)
+    xyz_output=Dense(3,activation='linear',name='xyz_output')(xyz_dense2)
+    
+    #Define inputs and output
+    model = Model(inputs=input_1, outputs=[rpy_output,xyz_output])
+    
+    return model
+
 if __name__=='__main__':
-    model=mock_deepvo()
+    model=vo_from_flow()
     model.summary()
-    plot_model(model, to_file='mock_deepvo.png', 
+    plot_model(model, to_file='vo_from_flow.png', 
                 show_shapes=True, 
                 show_layer_names=False, 
                 rankdir='TB',  #LR or TB for vertical or horizontal

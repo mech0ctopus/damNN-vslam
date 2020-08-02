@@ -124,33 +124,42 @@ def fill_depth_colorization(imgRgb=None, imgDepthInput=None, alpha=1):
 	return output
 
 if __name__=="__main__":
-    sequence_id='2011_09_30_drive_0028_sync'
-    last_image_idx=1213
+    # sequence_id='2011_09_30_drive_0028_sync'
+    # last_image_idx=1213
     
-    X_files=glob(r"G:\Documents\KITTI\raw_data\RGB\\"+sequence_id+"\\"+'*.png')
-    y_files=glob(r"G:\Documents\KITTI\raw_data\Depth\\"+sequence_id+"\\"+'*.png')
+    # X_files=glob(r"G:\Documents\KITTI\raw_data\RGB\\"+sequence_id+"\\"+'*.png')
+    # y_files=glob(r"G:\Documents\KITTI\raw_data\Depth\\"+sequence_id+"\\"+'*.png')
     
-    X_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
-    y_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+    # X_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+    # y_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
     
-    len_files=len(X_files)
+    # len_files=len(X_files)
     
-    for idx in range(len_files):
-        if idx>=last_image_idx:
-            start=timer()
-            #Read RGB and depth input images
-            imgRgb=deep_utils.rgb_read(X_files[idx])
-            imgDepthInput=deep_utils.depth_read_pre(y_files[idx])
-            #Colorize
-            denoised_depth_img=fill_depth_colorization(imgRgb=imgRgb, imgDepthInput=imgDepthInput, alpha=0.8)
-            output_name=basename(y_files[idx]).split('.')[0]
-            #Save depth image
-            deep_utils.heatmap(denoised_depth_img,save=True,show=False,
-                                name=r'G:\Documents\KITTI\raw_data\Depth\\'+sequence_id+'\colorized\\'+f'{output_name}')
-            end=timer()
-            dt=round(end-start,2)
+    # for idx in range(len_files):
+    #     if idx>=last_image_idx:
+    #         start=timer()
+    #         #Read RGB and depth input images
+    #         imgRgb=deep_utils.rgb_read(X_files[idx])
+    #         imgDepthInput=deep_utils.depth_read_pre(y_files[idx])
+    #         #Colorize
+    #         denoised_depth_img=fill_depth_colorization(imgRgb=imgRgb, imgDepthInput=imgDepthInput, alpha=0.8)
+    #         output_name=basename(y_files[idx]).split('.')[0]
+    #         #Save depth image
+    #         deep_utils.heatmap(denoised_depth_img,save=True,show=False,
+    #                             name=r'G:\Documents\KITTI\raw_data\Depth\\'+sequence_id+'\colorized\\'+f'{output_name}')
+    #         end=timer()
+    #         dt=round(end-start,2)
             
-            if (idx+1)%20==0:
-                print(f'Saving {idx+1}/{len_files} in {dt} sec')
-        else:
-            pass
+    #         if (idx+1)%20==0:
+    #             print(f'Saving {idx+1}/{len_files} in {dt} sec')
+    #     else:
+    #         pass
+
+    rgb_image=r"C:\Users\craig\Documents\GitHub\damNN-vslam\data\train\X\2011_09_30_drive_0016_sync_0000000006.png"
+    flow_image=r"C:\Users\craig\Documents\GitHub\damNN-vslam\data\train\flow\2011_09_30_drive_0016_sync_0000000006_flow.png"
+    #Read RGB and optical flow input images
+    imgRgb=deep_utils.rgb_read(rgb_image)
+    imgDepthInput=deep_utils.rgb_read(flow_image)[:,:,2]
+    #Colorize
+    denoised_depth_img=fill_depth_colorization(imgRgb=imgRgb, imgDepthInput=imgDepthInput, alpha=0.8)
+    deep_utils.heatmap(denoised_depth_img,save=False,name='heatmap',cmap='gray',show=True)

@@ -3,24 +3,23 @@
 Compare predicted vs. ground truth RPYXYZ on validation data.
 """
 from models import models
-from tensorflow.keras.optimizers import Adagrad
+from tensorflow.keras.optimizers import Adagrad, Adam
 from utils.read_odom import read_odom, denormalize
 from utils.deep_utils import rgb_read
 import numpy as np
 from glob import glob
 from os.path import basename
 import matplotlib.pyplot as plt
-from models.losses import deepvo_mse
+from models.losses import deepvo_mse, undeepvo_rpy_mse, undeepvo_xyz_mse
 
 def load_model():
     '''Load pretrained model.'''
     #Load model
-    model=models.mock_deepvo()
-    # losses = {'depth_output': 'mean_squared_error',
-    #           "rpy_output": 'mean_squared_logarithmic_error',
-    #           "xyz_output": 'mean_squared_logarithmic_error'}
-    model.load_weights(r"20200627-190824_mock_deepvo_weights_best.hdf5")
-    model.compile(loss=deepvo_mse,optimizer=Adagrad(0.001))
+    model=models.mock_undeepvo()
+    losses = {"rpy_output": undeepvo_rpy_mse,
+              "xyz_output": undeepvo_xyz_mse}
+    model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\Weights\20200718-201837_mock_undeepvo_withflow_weights_best.hdf5")
+    model.compile(loss=losses,optimizer=Adam(0.001))
     return model
 
 def normalize_image(image_path):
@@ -41,7 +40,7 @@ def predict_odom(image1_path,image2_path,model):
     #Denormalize
     # odom_dt=denormalize(odom_dt.reshape(6))
     # odom_dt=np.array((rpy_dt,xyz_dt))
-    odom_dt=rpyxyz_dt
+    odom_dt=np.array(rpyxyz_dt)
     #Denormalize
     odom_dt=odom_dt.reshape(6)
     return odom_dt
@@ -69,11 +68,11 @@ def get_actual_odom(image1_path,image2_path):
 def build_results(model, val_path):
     image_list=glob(val_path+'*.png')
     idx=1
-    predicted_results=np.zeros((len(image_list),6),dtype=np.float64)
-    actual_results=np.zeros((len(image_list),6),dtype=np.float64)
-    # predicted_results=np.zeros((1000,6),dtype=np.float64)
-    # actual_results=np.zeros((1000,6),dtype=np.float64)
-    while idx<(len(image_list)):
+    # predicted_results=np.zeros((len(image_list),6),dtype=np.float64)
+    # actual_results=np.zeros((len(image_list),6),dtype=np.float64)
+    predicted_results=np.zeros((99,6),dtype=np.float64)
+    actual_results=np.zeros((99,6),dtype=np.float64)
+    while idx<100:
         image1, image2 = image_list[idx], image_list[idx-1]
         predicted_results[idx-1]=predict_odom(image1,image2,model)
         actual_results[idx-1]=get_actual_odom(image1,image2)
@@ -144,46 +143,63 @@ def plot_overhead(predicted_results,actual_results):
     plt.plot(actual_x_plot,actual_y_plot)
     plt.legend(['Predicted', 'Actual'], loc='upper left')
     plt.show()
+
+def mean_adjust_results(actual_results,predicted_results):
+    #Adjust predicted data based on actual means
+    actual_means=np.mean(actual_results,axis=0,dtype=np.float64)
+    predicted_means=np.mean(predicted_results,axis=0,dtype=np.float64)
+    #Initialize adjusted results
+    adj_predicted_results=predicted_results
+    #Adjust each parameter
+    for i in range(6):
+        adj_predicted_results[:,i]=adj_predicted_results[:,i]-predicted_means[i]+actual_means[i]
+    return adj_predicted_results
+
+def scale_match_results(actual_results,predicted_results):
+    actual_maxes=np.max(actual_results,axis=0)
+    actual_mins=np.min(actual_results,axis=0)
+    pred_maxes=np.max(predicted_results,axis=0)
+    pred_mins=np.min(predicted_results,axis=0)
     
+    scaled_predicted_results=predicted_results
+    scaled_actual_results=actual_results
+    for i in range(6):
+        scaled_predicted_results[:,i]=np.interp(scaled_predicted_results[:,i], (pred_mins[i],pred_maxes[i]), (0,1))
+        scaled_actual_results[:,i]=np.interp(scaled_actual_results[:,i], (actual_mins[i],actual_maxes[i]), (0,1))
+    return scaled_predicted_results, scaled_actual_results
+
+def adjust_and_scale(actual_results,predicted_results):
+    adj_scaled_predicted_results=mean_adjust_results(actual_results, predicted_results)
+    adj_scaled_predicted_results, adj_scaled_actual_results=scale_match_results(actual_results, adj_scaled_predicted_results)
+    return adj_scaled_predicted_results, adj_scaled_actual_results
+
 if __name__=='__main__':
     model=load_model()
     val_path=r"data\val\X\\"
     predicted_results, actual_results=build_results(model, val_path)
-    plot_results(predicted_results,actual_results)
-    plot_overhead(predicted_results,actual_results)
+    # plot_results(predicted_results[0:100],actual_results[0:100])
+    save_results=False
+    
+    # plot_overhead(predicted_results,actual_results)
     #plot_3d_path(predicted_results,actual_results)
-    
-    #Save data to text files
-    # np.savetxt(r'predicted_results_deepvo.txt',predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')
-    # np.savetxt(r'actual_results.txt',actual_results,header='Roll, Pitch, Yaw, X, Y, Z')
-    
-    #Adjust predicted data based on actual means
-    # actual_means=np.mean(actual_results,axis=0,dtype=np.float64)
-    # predicted_means=np.mean(predicted_results,axis=0,dtype=np.float64)
-    # #Initialize adjusted results
-    # adj_predicted_results=predicted_results
-    # #Adjust each parameter
-    # for i in range(6):
-    #     adj_predicted_results[:,i]=adj_predicted_results[:,i]-predicted_means[i]+actual_means[i]
-    #Save adjusted results
-    # np.savetxt(r'adjusted_predicted_results_deepvo.txt',adj_predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')
-    #Plot adjusted results
-    #plot_results(adj_predicted_results,actual_results)
+
+    # Plot mean-adjusted results    
+    # adj_predicted_results=mean_adjust_results(actual_results,predicted_results)
+    # plot_results(adj_predicted_results,actual_results)
     
     # Adjust predicted data based on scale
-    # actual_maxes=np.max(actual_results,axis=0)
-    # actual_mins=np.min(actual_results,axis=0)
-    # pred_maxes=np.max(predicted_results,axis=0)
-    # pred_mins=np.min(predicted_results,axis=0)
-    
-    # scaled_predicted_results=predicted_results
-    # scaled_actual_results=actual_results
-    # for i in range(6):
-    #     scaled_predicted_results[:,i]=np.interp(scaled_predicted_results[:,i], (pred_mins[i],pred_maxes[i]), (0,1))
-    #     scaled_actual_results[:,i]=np.interp(scaled_actual_results[:,i], (actual_mins[i],actual_maxes[i]), (0,1))
-    
+    # scaled_predicted_results,scaled_actual_results=scale_match_results(actual_results[0:100], predicted_results[0:100])
     # plot_results(scaled_predicted_results,scaled_actual_results)
     # plot_3d_path(scaled_predicted_results,scaled_actual_results)
     
-    #Save scale-adjusted results
-    # np.savetxt(r'scaled_predicted_results_deepvo.txt',adj_predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')
+    p,a=adjust_and_scale(actual_results,predicted_results)
+    plot_results(p,a)
+    
+    if save_results:
+        #Save data to text files
+        np.savetxt(r'predicted_results_deepvo.txt',predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')
+        np.savetxt(r'actual_results.txt',actual_results,header='Roll, Pitch, Yaw, X, Y, Z')
+        # Save adjusted results
+        np.savetxt(r'adjusted_predicted_results_deepvo.txt',adj_predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')
+        #Save scale-adjusted results
+        np.savetxt(r'scaled_predicted_results_deepvo.txt',adj_predicted_results,header='Roll, Pitch, Yaw, X, Y, Z')

@@ -39,12 +39,15 @@ def simul_shuffle(mat1, mat2):
         mat2=mat2[idx]
     return mat1, mat2
 
-def rgb_read(filename):
+def rgb_read(filename, normalize=False):
     '''Reads RGB image from png file and returns it as a numpy array'''
     #Load image
     image=Image.open(filename)
     #store as np.array
-    rgb=np.array(image)
+    if normalize:
+        rgb=np.array(image)/256
+    else:
+        rgb=np.array(image)
     image.close()
     return rgb
 

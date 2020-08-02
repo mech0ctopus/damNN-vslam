@@ -34,7 +34,7 @@ def read_odom(sequence_id,desired_frame):
     global odom_ids
     global frame_ids
     
-    folderpath=r"raw_data_odometry\poses\\"
+    folderpath=r"C:\Users\craig\Documents\GitHub\damNN-vslam\raw_data_odometry\poses\\"
     odom_id=odom_ids[sequence_id]
     filepath=folderpath+odom_id+'.txt'
     
@@ -354,10 +354,10 @@ if __name__=='__main__':
     print('Actual RPYXYZ:')
     print(test_data-test2_data)
 
-    print('Max Diffs')
-    r,p,yaw,x,y,z=get_max_diffs()
-    print(r,p,yaw,x,y,z)
+    # print('Max Diffs')
+    # r,p,yaw,x,y,z=get_max_diffs()
+    # print(r,p,yaw,x,y,z)
     
-    print('Min Diffs')
-    r,p,yaw,x,y,z=get_min_diffs()
-    print(r,p,yaw,x,y,z)
+    # print('Min Diffs')
+    # r,p,yaw,x,y,z=get_min_diffs()
+    # print(r,p,yaw,x,y,z)
