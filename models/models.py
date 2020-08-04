@@ -401,8 +401,53 @@ def vo_from_flow(input_shape=(192,640,3)):
     
     return model
 
+
+def esp_cnn(input_shape=(192,640,4)):
+    '''Define CNN model for ESP-VO'''
+    model = Sequential()
+    model.add(Convolution2D(filters=64, kernel_size=7, strides=(2,2), padding='valid', input_shape=input_shape,activation='relu'))
+    model.add(Convolution2D(filters=128, kernel_size=5, strides=(2,2), padding='same', activation='relu'))
+    model.add(Convolution2D(filters=256, kernel_size=5, strides=(2,2), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=256, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=1024, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
+    model.add(Flatten())
+
+    return model
+
+def mock_espvo(input_shape=(192,640,3)):
+    '''Replicate ESP-VO model.'''
+    #Define input size
+    input_1=Input(input_shape) #Image at time=t
+    input_2=Input(input_shape) #Image at time=(t-1)
+    #Stack input images
+    stacked_images=Concatenate()([input_1,input_2])
+    
+    #Pass through CNN together (Is the padding the same as deepvo?)
+    #Should this be pre-trained from flownet?
+    cnn_out=esp_cnn(input_shape=(192,640,6))(stacked_images)
+    #Should this be reshaped like (3,10,1024)? or (1,3*10*1024) ?
+    reshaped_cnn_out=Reshape((1,3*10*1024))(cnn_out)
+    
+    #Pass through LSTM layers
+    lstm1=LSTM(512,return_sequences=True)(reshaped_cnn_out) #Should be 1000
+    lstm2=LSTM(512,return_sequences=False)(lstm1) #Should be 1000
+    
+    dense1=Dense(128,activation='relu')(lstm2)
+    dense2=Dense(12,activation='relu')(dense1)
+    rpy_out=Dense(3,activation='linear',name='rpy_output')(dense2)
+    xyz_out=Dense(3,activation='linear',name='xyz_output')(dense2)
+    
+    #Define inputs and output
+    model = Model(inputs=[input_1,input_2], outputs=[rpy_out,xyz_out])
+    
+    return model
+
 if __name__=='__main__':
-    model=vo_from_flow()
+    model=mock_espvo()
     model.summary()
     plot_model(model, to_file='vo_from_flow.png', 
                 show_shapes=True, 
