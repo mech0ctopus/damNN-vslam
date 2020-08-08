@@ -11,6 +11,7 @@ from tensorflow.keras.layers import PReLU
 from tensorflow import stack, squeeze
 import numpy as np
 import cv2 as cv
+from models import MatrixTransformLayer
 
 segmentation_models.set_framework('tf.keras')
 
@@ -438,8 +439,13 @@ def mock_espvo(input_shape=(192,640,3)):
     
     dense1=Dense(128,activation='relu')(lstm2)
     dense2=Dense(12,activation='relu')(dense1)
-    rpy_out=Dense(3,activation='linear',name='rpy_output')(dense2)
-    xyz_out=Dense(3,activation='linear',name='xyz_output')(dense2)
+    
+    se3=MatrixTransformLayer.SE3Layer()(dense2)
+    
+    reshape=Reshape((-1,6))(se3)
+    
+    rpy_out=Dense(3,activation='linear',name='rpy_output')(reshape)
+    xyz_out=Dense(3,activation='linear',name='xyz_output')(reshape)
     
     #Define inputs and output
     model = Model(inputs=[input_1,input_2], outputs=[rpy_out,xyz_out])

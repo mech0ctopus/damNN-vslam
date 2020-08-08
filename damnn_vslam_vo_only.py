@@ -74,10 +74,10 @@ def main(model_name, model, num_epochs, batch_size):
     return model
     
 if __name__=='__main__':
-    model=models.mock_undeepvo
-    model_name='mock_undeepvo'
+    model=models.mock_espvo
+    model_name='mock_espvo'
     model=main(model_name=model_name,model=model,
-               num_epochs=100,batch_size=32)
+               num_epochs=5,batch_size=32)
     show_test_image=True
     
     if show_test_image:
