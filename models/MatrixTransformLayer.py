@@ -7,6 +7,7 @@ Functions from/based off of ROS' TF package.
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from tensorflow.keras import backend as K
+from tensorflow.python.framework import tensor_shape
 import numpy as np
 import math
 
@@ -91,11 +92,26 @@ def euler_from_matrix(matrix, axes='sxyz'):
 def rpyxyz_from_matrix(matrix):
     '''Returns array of roll, pitch, yaw, x, y, z from 3x4 transform matrix.
     Angles in radians.'''
-    if len(matrix)==12:
-        matrix=matrix.reshape((3,4))
+    # if len(matrix)==12:
+    #     matrix=matrix.reshape((3,4))
+    #matrix=np.array(matrix)
+    #print(matrix)
     roll, pitch, yaw=euler_from_matrix(matrix, axes='sxyz')
     x, y, z = translation_from_matrix(matrix)
     return tf.constant([roll,pitch,yaw,x,y,z],dtype='float32')
+
+def rpyxyz_from_matrices(matrices,N=32):
+    '''Returns array of roll, pitch, yaw, x, y, z from Nx3x4 transform matrix.
+    Angles in radians.'''
+    output=np.zeros((N,6))
+    for idx,matrix in enumerate(matrices):
+        roll, pitch, yaw=euler_from_matrix(matrix, axes='sxyz')
+        x, y, z = translation_from_matrix(matrix)
+        output[idx,:]=np.array([roll,pitch,yaw,x,y,z],dtype='float32')
+    output=tf.constant(output,dtype='float32')
+    #output=tf.convert_to_tensor(output,dtype='float32')
+    print(output)
+    return output
 
 class SE3Layer(Layer):
     """ Extends keras Layer to support SE3 rpyxyz from transform matrix
@@ -108,14 +124,16 @@ class SE3Layer(Layer):
     def call(self, xin):
         """Tensorflow hook 
         Args:
-            xin (tensor): 12-element tensorflow
+            xin (tensor): 12-element tensor
         Returns:
-            RPYXYZ_vector : a tensor containing the results of SE3
+            RPYXYZ_vector : a 6-element tensor containing the results of SE3
         """
-        xout = tf.py_function(rpyxyz_from_matrix, 
+        xout = tf.py_function(rpyxyz_from_matrices, 
                               [xin],
                               'float32',
                               name='SE3')
         #xout = K.stop_gradient(xout) # explicitly set no grad
         xout.set_shape([None,6]) # explicitly set output shape
+        
+        #return tf.reshape(xout, (-1,6))
         return xout
