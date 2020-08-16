@@ -44,8 +44,8 @@ def main(model_name, model, num_epochs, batch_size):
     
     #DeepVO uses Adagrad(0.001)
     # model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\Weights\20200714-191625_mock_undeepvo_weights_best.hdf5")
-    model.compile(loss=losses,optimizer=Adam(0.005,beta_2=0.99)) #UnDeepVO uses beta_2=0.99
-    # model.compile(loss=deepvo_mse,optimizer=Adagrad(0.001))
+    model.compile(loss=losses,optimizer=Adam(1e-4,beta_2=0.99)) #UnDeepVO uses beta_2=0.99
+    #model.compile(loss=deepvo_mse,optimizer=Adam(0.005,beta_2=0.99))
     
     #Save best model weights checkpoint
     filepath=f"{model_name}_weights_best.hdf5"
@@ -77,7 +77,7 @@ if __name__=='__main__':
     model=models.mock_espvo
     model_name='mock_espvo'
     model=main(model_name=model_name,model=model,
-               num_epochs=5,batch_size=32)
+               num_epochs=50,batch_size=1)
     show_test_image=True
     
     if show_test_image:
