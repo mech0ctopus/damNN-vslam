@@ -1,11 +1,5 @@
-import os
-
 import tensorflow as tf
-from tensorflow.python.framework import tensor_shape
-from tensorflow.python.ops.rnn_cell_impl import LayerRNNCell
 from tensorflow.keras.layers import Layer
-import numpy as np
-import sys
 
 def quaternion_to_euler_angle_vectorized1(w, x, y, z):
     #https://stackoverflow.com/questions/56207448/efficient-quaternions-to-euler-transformation
@@ -66,6 +60,7 @@ class SE3CompositeLayer(Layer):
         self.built = True
         
     def __call__(self, inputs, scope=None, *args, **kwargs): #state, 
+        #https://github.com/ankurhanda/tf-new-op-example/blob/master/tf_se3.py
         x_trans, x_rot = tf.split(inputs, 2, 1)
         x_trans=tf.transpose(x_trans)
 
@@ -86,7 +81,7 @@ class SE3CompositeLayer(Layer):
         R = tf.scalar_mul(sin_t_by_t,omega_t) + \
           tf.scalar_mul(one_min_cos_t_by_t, tf.matmul(omega_t, omega_t)) + \
           tf.eye(3,dtype=tf.float32)
-        print('R: ',R)
+        # print('R: ',R)
         
         theta_minus_sin_theta_div_theta3 = tf.math.truediv(tf.math.add(theta, -sin_theta), tf.math.pow(theta,3))
 
@@ -95,20 +90,23 @@ class SE3CompositeLayer(Layer):
           + tf.eye(3,dtype=tf.float32)
           
         t=tf.reshape(x_trans,(3,1))
-        print('x_trans: ',x_trans)
-        print('t: ',t)
-        print('V: ',V)
-        Vu = tf.matmul(V,x_trans) #V * x_trans
+        # print('x_trans: ',x_trans)
+        # print('t: ',t)
+        # print('V: ',V)
+        Vu = tf.matmul(V,t) #V * x_trans
         #-----------------
         #xyzq = layer_xyzq(r_matrix)
-        print('Vu: ',Vu)
+        # print('Vu: ',Vu)
         #Vu = tf.map_fn(lambda x: tf.concat((x, [[0, 0, 0, 1]]), axis=0), Vu)
-        Rt=tf.concat((R,t), axis=1)
-        print('Rt: ',Rt)
+        Rt=tf.concat((R,Vu), axis=1)
+        # print('Rt: ',Rt)
         H=tf.concat((Rt,[[0.0,0.0,0.0,1.0]]),axis=0)
-        print('H: ',H)
+        # print('H: ',H)
         xyzq = layer_xyzq(H,rpy=True)
         xyzq=tf.reshape(xyzq,shape=(1,6))
-        print(xyzq)
+        #Remove Nans and Infs
+        #xyzq= tf.clip_by_value(xyzq, -1e6, 1e6)
+        xyzq=tf.where(tf.math.is_nan(xyzq), tf.zeros_like(xyzq), xyzq)
+        # print(xyzq)
 
         return xyzq

@@ -4,14 +4,14 @@ Final Models.
 """
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.layers import Concatenate, Dense, Convolution2D, MaxPooling2D, Conv3D
-from tensorflow.keras.layers import Flatten, Input, Reshape, Dropout, LSTM, LSTMCell, TimeDistributed
+from tensorflow.keras.layers import Concatenate, Dense, Convolution2D, Conv3D
+from tensorflow.keras.layers import Flatten, Input, Reshape, Dropout, LSTM
 import segmentation_models
 from tensorflow.keras.layers import PReLU
-from tensorflow import stack, squeeze
 import numpy as np
 import cv2 as cv
-from models import MatrixTransformLayer
+from models import se3
+import tensorflow as tf
 
 segmentation_models.set_framework('tf.keras')
 
@@ -422,30 +422,48 @@ def esp_cnn(input_shape=(192,640,4)):
 def mock_espvo(input_shape=(192,640,3)):
     '''Replicate ESP-VO model.'''
     #Define input size
-    input_1=Input(input_shape) #Image at time=t
-    input_2=Input(input_shape) #Image at time=(t-1)
+    input_1=Input(input_shape,name='input1') #Image at time=t
+    input_2=Input(input_shape,name='input2') #Image at time=(t-1)
     #Stack input images
-    stacked_images=Concatenate()([input_1,input_2])
+    stacked_images=Concatenate(name='concat')([input_1,input_2])
     
     #Pass through CNN together (Is the padding the same as deepvo?)
     #Should this be pre-trained from flownet?
-    cnn_out=esp_cnn(input_shape=(192,640,6))(stacked_images)
+    cnn_out=esp_cnn(input_shape=(input_shape[0],input_shape[1],2*input_shape[2]))(stacked_images)
     #Should this be reshaped like (3,10,1024)? or (1,3*10*1024) ?
     reshaped_cnn_out=Reshape((1,3*10*1024))(cnn_out)
     
     #Pass through LSTM layers
-    lstm1=LSTM(512,return_sequences=True)(reshaped_cnn_out) #Should be 1000
-    lstm2=LSTM(512,return_sequences=False)(lstm1) #Should be 1000
+    lstm1=LSTM(128,return_sequences=True,name='lstm1')(reshaped_cnn_out) #Should be 1000
+    lstm2=LSTM(128,return_sequences=False,name='lstm2')(lstm1) #Should be 1000
     
-    dense1=Dense(128,activation='relu')(lstm2)
-    dense2=Dense(12,activation='relu')(dense1)
-    
-    se3=MatrixTransformLayer.SE3Layer()(dense2)
-    
-    reshape=Reshape((-1,6))(se3)
-    
-    rpy_out=Dense(3,activation='linear',name='rpy_output')(reshape)
-    xyz_out=Dense(3,activation='linear',name='xyz_output')(reshape)
+    dense1=Dense(128,activation='relu',name='dense1')(lstm2)
+    dense2=Dense(6,activation='relu',name='dense2')(dense1)
+
+    #output_print=tf.print(dense2,'Output of dense2: ')
+    #ar0Intermediate = Print("shape of dense2 =",fn=lambda x: tf.shape(x) )(dense2) #show the shape of dense2
+    #ar0Intermediate = Print("Content of dense2 = " )(ar0Intermediate) #show the content of dense2
+
+    #pose : SE(3)
+    #init_s = placeholder_with_default(eye(4, batch_shape=[1]), 
+    #                                  shape=(1, 4, 4)) #32 should be batch_size variable
+    #se3_outputs, se3_state = static_rnn(cell=se3_layer,
+    #                                    inputs=[dense2],
+    #                                    initial_state=init_s,
+    #                                    dtype=float32)
+    #init_s=tf.keras.Input((None, 4, 4)))
+    se3_layer=se3.SE3CompositeLayer()(dense2)
+    se3_layer.trainable=False
+    #se3_outputs = RNN(cell=se3_layer,  
+    #                  unroll=True,
+    #                  dtype=float32)(dense2) #, initial_state=init_s
+    #reshape_mat=Reshape((3,4))(dense2)
+    #se3_layer=MatrixTransformLayer.SE3Layer()(reshape_mat)
+                                 
+    #reshape=Reshape((None,1))(se3_layer)
+
+    rpy_out=Dense(3,activation='linear',name='rpy_output',dtype=tf.float32)(se3_layer)
+    xyz_out=Dense(3,activation='linear',name='xyz_output',dtype=tf.float32)(se3_layer)
     
     #Define inputs and output
     model = Model(inputs=[input_1,input_2], outputs=[rpy_out,xyz_out])
@@ -455,7 +473,7 @@ def mock_espvo(input_shape=(192,640,3)):
 if __name__=='__main__':
     model=mock_espvo()
     model.summary()
-    plot_model(model, to_file='vo_from_flow.png', 
+    plot_model(model, to_file='with_se3.png', 
                 show_shapes=True, 
                 show_layer_names=False, 
                 rankdir='TB',  #LR or TB for vertical or horizontal

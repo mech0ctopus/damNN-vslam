@@ -44,22 +44,24 @@ def main(model_name, model, num_epochs, batch_size):
     
     #DeepVO uses Adagrad(0.001)
     # model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\Weights\20200714-191625_mock_undeepvo_weights_best.hdf5")
-    model.compile(loss=losses,optimizer=Adam(1e-4,beta_2=0.99)) #UnDeepVO uses beta_2=0.99
-    #model.compile(loss=deepvo_mse,optimizer=Adam(0.005,beta_2=0.99))
+    # model.compile(loss=losses,optimizer=Adam(1e-6,clipvalue=0.5)) #UnDeepVO uses beta_2=0.99
+    # model.compile(loss=losses,optimizer=Adagrad(0.001,clipvalue=0.5))
+    #https://machinelearningmastery.com/exploding-gradients-in-neural-networks/
+    model.compile(loss=losses,optimizer=Adam(0.001,beta_2=0.99,clipvalue=0.5))
     
     #Save best model weights checkpoint
     filepath=f"{model_name}_weights_best.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
                                  save_best_only=True, mode='min')
-    filepath2=f"{model_name}_weights_best_trainingloss.hdf5"
-    checkpoint2 = ModelCheckpoint(filepath2, monitor='loss', verbose=1, 
-                                 save_best_only=True, mode='min')
+    # filepath2=f"{model_name}_weights_best_trainingloss.hdf5"
+    # checkpoint2 = ModelCheckpoint(filepath2, monitor='loss', verbose=1, 
+    #                              save_best_only=True, mode='min')
     
     #Tensorboard setup
     log_dir = f"logs\\{model_name}\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")        
     tensorboard_callback = TensorBoard(log_dir=log_dir, write_images=True)
     
-    callbacks_list = [checkpoint, checkpoint2, tensorboard_callback]
+    callbacks_list = [checkpoint, tensorboard_callback] #checkpoint2
     
     model.fit_generator(_batchGenerator(X_filelist,y_filelist,batch_size),
                         epochs=num_epochs,
