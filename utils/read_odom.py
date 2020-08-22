@@ -68,6 +68,19 @@ def read_odom(sequence_id,desired_frame):
     #https://www.learnopencv.com/rotation-matrix-to-euler-angles/
     roll, pitch, yaw = rotationMatrixToEulerAngles(R)
 
+    if roll>np.pi:
+        roll-=2*np.pi
+    elif roll<-np.pi:
+        roll+=2*np.pi
+    if pitch>np.pi:
+        pitch-=2*np.pi
+    elif pitch<-np.pi:
+        pitch+=2*np.pi
+    if yaw>np.pi:
+        yaw-=2*np.pi
+    elif yaw<-np.pi:
+        yaw+=2*np.pi
+        
     #Set result
     current_data=np.array([roll, pitch, yaw, tx, ty, tz])
     
@@ -111,7 +124,7 @@ def get_max_diff(sequence_id):
     global odom_ids
     from math import atan2, sqrt
     
-    folderpath=r"G:\Documents\KITTI\raw_data_odometry\poses\\"
+    folderpath=r"C:\Users\craig\Documents\GitHub\damNN-vslam\raw_data_odometry\poses\\"
     odom_id=odom_ids[sequence_id]
     filepath=folderpath+odom_id+'.txt'
     
@@ -214,7 +227,7 @@ def get_min_diff(sequence_id):
     global odom_ids
     from math import atan2, sqrt
     
-    folderpath=r"G:\Documents\KITTI\raw_data_odometry\poses\\"
+    folderpath=r"C:\Users\craig\Documents\GitHub\damNN-vslam\raw_data_odometry\poses\\"
     odom_id=odom_ids[sequence_id]
     filepath=folderpath+odom_id+'.txt'
     
@@ -348,8 +361,8 @@ def denormalize(odom):
     return denormalized_odom
     
 if __name__=='__main__':
-    test_data=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=135)
-    test2_data=read_odom(sequence_id="2011_09_30_drive_0018",desired_frame=134)
+    test_data=read_odom(sequence_id="2011_10_03_drive_0027",desired_frame=1)
+    test2_data=read_odom(sequence_id="2011_10_03_drive_0027",desired_frame=0)
     # test_data=test_data.reshape((2,3))
     print('Actual RPYXYZ:')
     print(test_data-test2_data)
