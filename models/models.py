@@ -10,7 +10,7 @@ import segmentation_models
 from tensorflow.keras.layers import PReLU
 import numpy as np
 import cv2 as cv
-from models import se3
+from models import se3 
 import tensorflow as tf
 
 segmentation_models.set_framework('tf.keras')
@@ -382,27 +382,6 @@ def lvo_cnn(input_shape=(192,640,3)):
 
     return model
 
-def vo_from_flow(input_shape=(192,640,3)):
-    '''Replicate UnDeepVO model.'''
-    #Define input size
-    input_1=Input(input_shape) #Optical Flow between t and t-1
-    cnn_out=cnn_new(input_shape)(input_1)
-
-    rpy_dense1=Dense(256,activation='relu')(cnn_out)
-    rpy_dense2=Dense(256,activation='relu')(rpy_dense1)
-     
-    xyz_dense1=Dense(256,activation='relu')(cnn_out)
-    xyz_dense2=Dense(256,activation='relu')(xyz_dense1)
-
-    rpy_output=Dense(3,activation='linear',name='rpy_output')(rpy_dense2)
-    xyz_output=Dense(3,activation='linear',name='xyz_output')(xyz_dense2)
-    
-    #Define inputs and output
-    model = Model(inputs=input_1, outputs=[rpy_output,xyz_output])
-    
-    return model
-
-
 def esp_cnn(input_shape=(192,640,4)):
     '''Define CNN model for ESP-VO'''
     model = Sequential()
@@ -417,6 +396,71 @@ def esp_cnn(input_shape=(192,640,4)):
     model.add(Convolution2D(filters=1024, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
     model.add(Flatten())
 
+    return model
+
+def vo_from_flow(input_shape=(192,640,3)):
+    '''Replicate UnDeepVO model.'''
+    #Define input size
+    input_1=Input(input_shape) #Optical Flow between t and t-1
+    cnn_out=esp_cnn(input_shape)(input_1)
+
+    rpy_dense1=Dense(256,activation='relu')(cnn_out)
+    dropout1=Dropout(0.5)(rpy_dense1)
+    rpy_dense2=Dense(256,activation='relu')(dropout1)
+    dropout2=Dropout(0.5)(rpy_dense2)
+    rpy_dense3=Dense(256,activation='relu')(dropout2)
+    dropout3=Dropout(0.5)(rpy_dense3)
+    rpy_dense4=Dense(256,activation='relu')(dropout3)
+    dropout4=Dropout(0.5)(rpy_dense4)
+    rpy_dense5=Dense(256,activation='relu')(dropout4)
+    dropout5=Dropout(0.5)(rpy_dense5)
+     
+    xyz_dense1=Dense(256,activation='relu')(cnn_out)
+    dropout6=Dropout(0.5)(xyz_dense1)
+    xyz_dense2=Dense(256,activation='relu')(dropout6)
+    dropout7=Dropout(0.5)(xyz_dense2)
+    xyz_dense3=Dense(256,activation='relu')(dropout7)
+    dropout8=Dropout(0.5)(xyz_dense3)
+    xyz_dense4=Dense(256,activation='relu')(dropout8)
+    dropout9=Dropout(0.5)(xyz_dense4)
+    xyz_dense5=Dense(256,activation='relu')(dropout9)
+    dropout10=Dropout(0.5)(xyz_dense5)
+    
+    #Stack input images
+    stacked_images=Concatenate(name='concat')([dropout5,dropout10])
+    dense=Dense(6,activation='relu',name='dense2')(stacked_images)
+    se3_layer=se3.SE3CompositeLayer()(dense)
+    se3_layer.trainable=False
+    
+    rpy_output=Dense(3,activation='linear',name='rpy_output')(rpy_dense2)
+    xyz_output=Dense(3,activation='linear',name='xyz_output')(xyz_dense2)
+    
+    #Define inputs and output
+    model = Model(inputs=input_1, outputs=[rpy_output,xyz_output])
+    
+    return model
+
+def depth_only(input_shape=(192,640,1)):
+    '''Get relative RPYXYZ from 2x Depth Images.'''
+    #Define input size
+    input_1=Input(input_shape,name='input1') #Depth Image at time=t
+    input_2=Input(input_shape,name='input2') #Depth Image at time=(t-1)
+    #Stack input images
+    stacked_images=Concatenate(name='concat')([input_1,input_2])
+    cnn_out=esp_cnn(input_shape=(input_shape[0],input_shape[1],2*input_shape[2]))(stacked_images)
+
+    dense1=Dense(128,activation='relu',name='dense1')(cnn_out)
+    dense2=Dense(6,activation='relu',name='dense2')(dense1)
+
+    se3_layer=se3.SE3CompositeLayer()(dense2)
+    se3_layer.trainable=False
+
+    rpy_out=Dense(3,activation='linear',name='rpy_output',dtype=tf.float32)(se3_layer)
+    xyz_out=Dense(3,activation='linear',name='xyz_output',dtype=tf.float32)(se3_layer)
+    
+    #Define inputs and output
+    model = Model(inputs=[input_1,input_2], outputs=[rpy_out,xyz_out])
+    
     return model
 
 def mock_espvo(input_shape=(192,640,3)):
@@ -470,10 +514,46 @@ def mock_espvo(input_shape=(192,640,3)):
     
     return model
 
+def mock_espvo_rgbd(input_shape=(192,640,4)):
+    '''Replicate ESP-VO RGBD model.'''
+    #Define input size
+    rgb_input_1=Input(input_shape,name='input1') #RGB Image at time=t
+    rgb_input_2=Input(input_shape,name='input2') #RGB Image at time=(t-1)
+    d_input_1=Input(input_shape,name='input3') #Depth Image at time=t
+    d_input_2=Input(input_shape,name='input4') #Depth Image at time=(t-1)
+    #Stack input images
+    stacked_images=Concatenate(name='concat')([rgb_input_1,rgb_input_2,
+                                               d_input_1,d_input_2])
+    
+    #Pass through CNN together (Is the padding the same as deepvo?)
+    #Should this be pre-trained from flownet?
+    cnn_out=esp_cnn(input_shape=(input_shape[0],input_shape[1],4*input_shape[2]))(stacked_images)
+    #Should this be reshaped like (3,10,1024)? or (1,3*10*1024) ?
+    reshaped_cnn_out=Reshape((1,3*10*1024))(cnn_out)
+    
+    #Pass through LSTM layers
+    lstm1=LSTM(128,return_sequences=True,name='lstm1')(reshaped_cnn_out) #Should be 1000
+    lstm2=LSTM(128,return_sequences=False,name='lstm2')(lstm1) #Should be 1000
+    
+    dense1=Dense(128,activation='relu',name='dense1')(lstm2)
+    dense2=Dense(6,activation='relu',name='dense2')(dense1)
+
+    se3_layer=se3.SE3CompositeLayer()(dense2)
+    se3_layer.trainable=False
+
+    rpy_out=Dense(3,activation='linear',name='rpy_output',dtype=tf.float32)(se3_layer)
+    xyz_out=Dense(3,activation='linear',name='xyz_output',dtype=tf.float32)(se3_layer)
+    
+    #Define inputs and output
+    model = Model(inputs=[rgb_input_1,rgb_input_2,d_input_1,d_input_2], 
+                  outputs=[rpy_out,xyz_out])
+    
+    return model
+
 if __name__=='__main__':
-    model=mock_espvo()
+    model=mock_espvo_rgbd()
     model.summary()
-    plot_model(model, to_file='with_se3.png', 
+    plot_model(model, to_file='mock_espvo_rgbd.png', 
                 show_shapes=True, 
                 show_layer_names=False, 
                 rankdir='TB',  #LR or TB for vertical or horizontal
