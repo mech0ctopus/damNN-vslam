@@ -33,9 +33,13 @@ def layer_xyzq(matrix_rt, scope='pose', name='xyzq',rpy=True):
     x = matrix_rt[0, 3]
     y = matrix_rt[1, 3]
     z = matrix_rt[2, 3]
+    
     if rpy:
         roll, pitch, yaw = quaternion_to_euler_angle_vectorized1(qw, qx, qy, qz)
-        xyzq = tf.stack([roll, pitch, yaw, x, y, z], axis=-1, name=name)
+        rpyxyz = tf.stack([roll, pitch, yaw, x, y, z], axis=-1, name=name)
+        rpy= tf.clip_by_value(rpyxyz[:3], -3.1415/4, 3.1415/4)
+        xyz= tf.clip_by_value(rpyxyz[3:], -2, 2)
+        xyzq=tf.concat((rpy,xyz),axis=0)
         return xyzq
     else:
         xyzq = tf.stack([qw, qx, qy, qz, x, y, z], axis=-1, name=name)

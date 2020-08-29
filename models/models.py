@@ -471,10 +471,8 @@ def mock_espvo(input_shape=(192,640,3)):
     #Stack input images
     stacked_images=Concatenate(name='concat')([input_1,input_2])
     
-    #Pass through CNN together (Is the padding the same as deepvo?)
-    #Should this be pre-trained from flownet?
+    #Pass through CNN together
     cnn_out=esp_cnn(input_shape=(input_shape[0],input_shape[1],2*input_shape[2]))(stacked_images)
-    #Should this be reshaped like (3,10,1024)? or (1,3*10*1024) ?
     reshaped_cnn_out=Reshape((1,3*10*1024))(cnn_out)
     
     #Pass through LSTM layers
@@ -484,27 +482,8 @@ def mock_espvo(input_shape=(192,640,3)):
     dense1=Dense(128,activation='relu',name='dense1')(lstm2)
     dense2=Dense(6,activation='relu',name='dense2')(dense1)
 
-    #output_print=tf.print(dense2,'Output of dense2: ')
-    #ar0Intermediate = Print("shape of dense2 =",fn=lambda x: tf.shape(x) )(dense2) #show the shape of dense2
-    #ar0Intermediate = Print("Content of dense2 = " )(ar0Intermediate) #show the content of dense2
-
-    #pose : SE(3)
-    #init_s = placeholder_with_default(eye(4, batch_shape=[1]), 
-    #                                  shape=(1, 4, 4)) #32 should be batch_size variable
-    #se3_outputs, se3_state = static_rnn(cell=se3_layer,
-    #                                    inputs=[dense2],
-    #                                    initial_state=init_s,
-    #                                    dtype=float32)
-    #init_s=tf.keras.Input((None, 4, 4)))
     se3_layer=se3.SE3CompositeLayer()(dense2)
     se3_layer.trainable=False
-    #se3_outputs = RNN(cell=se3_layer,  
-    #                  unroll=True,
-    #                  dtype=float32)(dense2) #, initial_state=init_s
-    #reshape_mat=Reshape((3,4))(dense2)
-    #se3_layer=MatrixTransformLayer.SE3Layer()(reshape_mat)
-                                 
-    #reshape=Reshape((None,1))(se3_layer)
 
     rpy_out=Dense(3,activation='linear',name='rpy_output',dtype=tf.float32)(se3_layer)
     xyz_out=Dense(3,activation='linear',name='xyz_output',dtype=tf.float32)(se3_layer)
@@ -514,21 +493,20 @@ def mock_espvo(input_shape=(192,640,3)):
     
     return model
 
-def mock_espvo_rgbd(input_shape=(192,640,4)):
+def mock_espvo_rgbd(input_shape=(192,640,3)):
     '''Replicate ESP-VO RGBD model.'''
     #Define input size
     rgb_input_1=Input(input_shape,name='input1') #RGB Image at time=t
     rgb_input_2=Input(input_shape,name='input2') #RGB Image at time=(t-1)
-    d_input_1=Input(input_shape,name='input3') #Depth Image at time=t
-    d_input_2=Input(input_shape,name='input4') #Depth Image at time=(t-1)
+    d_input_1=Input((192,640,1),name='input3') #Depth Image at time=t
+    d_input_2=Input((192,640,1),name='input4') #Depth Image at time=(t-1)
+    d1_reshape=Reshape((192,640,1))(d_input_1)
+    d2_reshape=Reshape((192,640,1))(d_input_2)
     #Stack input images
     stacked_images=Concatenate(name='concat')([rgb_input_1,rgb_input_2,
-                                               d_input_1,d_input_2])
+                                               d1_reshape,d2_reshape])
     
-    #Pass through CNN together (Is the padding the same as deepvo?)
-    #Should this be pre-trained from flownet?
-    cnn_out=esp_cnn(input_shape=(input_shape[0],input_shape[1],4*input_shape[2]))(stacked_images)
-    #Should this be reshaped like (3,10,1024)? or (1,3*10*1024) ?
+    cnn_out=esp_cnn(input_shape=(input_shape[0],input_shape[1],8))(stacked_images)
     reshaped_cnn_out=Reshape((1,3*10*1024))(cnn_out)
     
     #Pass through LSTM layers
