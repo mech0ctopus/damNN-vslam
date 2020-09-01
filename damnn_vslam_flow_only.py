@@ -35,25 +35,25 @@ def main(model_name, model, num_epochs, batch_size):
     X_val_filelist=glob(X_val_folderpath+'*.png')
     
     model=model()
-    losses={'rpy_output':undeepvo_rpy_mse,
-            'xyz_output':undeepvo_xyz_mse}
+    losses={'rpy_output':'msle',
+            'xyz_output':'msle'}
     
     # model.compile(loss=losses,optimizer=Adagrad(0.001))
-    model.compile(loss=losses,optimizer=Adam(0.01))
+    model.compile(loss=losses,optimizer=Adam(1e-7)) #Val_loss:21.76883 with LR=0.001
     
     #Save best model weights checkpoint
     filepath=f"{model_name}_weights_best.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
                                  save_best_only=True, mode='min')
-    filepath2=f"{model_name}_weights_best_trainingloss.hdf5"
-    checkpoint2 = ModelCheckpoint(filepath2, monitor='loss', verbose=1, 
-                                  save_best_only=True, mode='min')
+    # filepath2=f"{model_name}_weights_best_trainingloss.hdf5"
+    # checkpoint2 = ModelCheckpoint(filepath2, monitor='loss', verbose=1, 
+    #                               save_best_only=True, mode='min')
     
     #Tensorboard setup
     log_dir = f"logs\\{model_name}\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")        
     tensorboard_callback = TensorBoard(log_dir=log_dir)
     
-    callbacks_list = [checkpoint, checkpoint2, tensorboard_callback]
+    callbacks_list = [checkpoint, tensorboard_callback] #checkpoint2, 
     
     model.fit_generator(_batchGenerator(X_filelist,batch_size),
                         epochs=num_epochs,
@@ -71,5 +71,5 @@ if __name__=='__main__':
     model=models.vo_from_flow
     model_name='vo_from_flow'
     model=main(model_name=model_name,model=model,
-               num_epochs=30,batch_size=8)
+               num_epochs=200,batch_size=1)
         

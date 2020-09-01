@@ -10,7 +10,7 @@ import segmentation_models
 from tensorflow.keras.layers import PReLU
 import numpy as np
 import cv2 as cv
-from models import se3 
+# from models import se3 
 import tensorflow as tf
 
 segmentation_models.set_framework('tf.keras')
@@ -83,15 +83,15 @@ def parallel_unets(input_shape=(192,640,3)): #375,1242 TODO: Need to update dim 
 def cnn4(input_shape=(192,640,4)):
     '''Define CNN model'''
     model = Sequential()
-    model.add(Convolution2D(filters=64, kernel_size=7, strides=(2,2), padding='valid', input_shape=input_shape,activation='relu'))
-    model.add(Convolution2D(filters=128, kernel_size=5, strides=(2,2), padding='same', activation='relu'))
-    model.add(Convolution2D(filters=256, kernel_size=5, strides=(2,2), padding='same',activation='relu'))
-    model.add(Convolution2D(filters=256, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
-    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation='relu'))
-    model.add(Convolution2D(filters=1024, kernel_size=3, strides=(2,2), padding='same',activation='relu'))
+    model.add(Convolution2D(filters=64, kernel_size=7, strides=(2,2), padding='valid', input_shape=input_shape,activation=PReLU()))
+    model.add(Convolution2D(filters=128, kernel_size=5, strides=(2,2), padding='same', activation=PReLU()))
+    model.add(Convolution2D(filters=256, kernel_size=5, strides=(2,2), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=256, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=512, kernel_size=3, strides=(1,1), padding='same',activation=PReLU()))
+    model.add(Convolution2D(filters=1024, kernel_size=3, strides=(2,2), padding='same',activation=PReLU()))
     model.add(Flatten())
 
     return model
@@ -115,34 +115,14 @@ def cnn_3d(input_shape=(2,192,640,4)):
 def DenseBlock(input_shape = (4320,1)):
     model = Sequential()
     model.add(Dropout(0.5))
-    model.add(Dense(288, input_shape = input_shape, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(288, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(288, activation='relu'))
-    model.add(Dropout(0.5))
-    #New
-    model.add(Dense(288, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(512, activation='relu'))
+    model.add(Dense(512, input_shape = input_shape, activation=PReLU()))
     model.add(Dropout(0.5)) 
-    model.add(Dense(512, activation='relu'))
+    model.add(Dense(512, activation=PReLU()))
     model.add(Dropout(0.5)) 
-    model.add(Dense(512, activation='relu'))
+    model.add(Dense(512, activation=PReLU()))
     model.add(Dropout(0.5)) 
-    model.add(Dense(512, activation='relu'))
+    model.add(Dense(512, activation=PReLU()))
     model.add(Dropout(0.5)) 
-    model.add(Dense(288, activation='relu'))
-    model.add(Dropout(0.5))
-    #End New
-    model.add(Dense(144, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(72, activation='relu'))
-    model.add(Dropout(0.5))
-    # model.add(Dense(72, activation='relu'))
-    # model.add(Dropout(0.5))
-    # model.add(Dense(36, activation='relu'))
-    # model.add(Dropout(0.5))
     return model
 
 def wnet_connected():   
@@ -189,75 +169,36 @@ def cnn_new(input_shape=(192,640,6)):
 
 def parallel_unets_with_tf(input_shape=(192,640,3)):
     '''Define Parallel U-Nets model.'''
-    #Define input size
-    input_1=Input(input_shape) #Image at time=t
-    input_2=Input(input_shape) #Image at time=(t-1)
-                                    
-    # #Load unet with backbone with no imagnet weights
-    # unet_1 = segmentation_models.Unet('resnet50', #resnet50, mobilenetv2
-    #                                   input_shape=input_shape, 
-    #                                   encoder_weights='imagenet', #None
-    #                                   encoder_freeze=False)
-    wnet_c=wnet_connected()
+    #Define inputs
+    rgb_input_1=Input(input_shape,name='input1') #RGB Image at time=t
+    rgb_input_2=Input(input_shape,name='input2') #RGB Image at time=(t-1)
+    d_input_1=Input((192,640,1),name='input3') #Depth Image at time=t
+    d_input_2=Input((192,640,1),name='input4') #Depth Image at time=(t-1)
+    d1_reshape=Reshape((192,640,1))(d_input_1)
+    d2_reshape=Reshape((192,640,1))(d_input_2)
+        
+    #Build RGBD
+    rgbd1=Concatenate()([rgb_input_1,d1_reshape]) #RGBD Image at time=t
+    rgbd2=Concatenate()([rgb_input_2,d2_reshape]) #RGBD Image at time=t-1
     
-    #Get final conv. output and skip sigmoid activation layer
-    # unet_1=Model(inputs=unet_1.input, outputs=unet_1.layers[-2].output)
+    cnn1=cnn4()(rgbd1)
+    cnn2=cnn4()(rgbd2)
+    flatten1=Flatten()(cnn1)
+    flatten2=Flatten()(cnn2)
+    dense_block1=DenseBlock(input_shape=(flatten1.shape[0],1))(flatten1)
+    dense_block2=DenseBlock(input_shape=(flatten2.shape[0],1))(flatten2)
+    merged=Concatenate()([dense_block1,dense_block2])
+    flatten3=Flatten()(merged)
     
-    #Load unet weights from depth-only pretraining
-    wnet_c.load_weights(r"models/W-Net_Connected_weights_best_KITTI_35Epochs.hdf5")
-    for layer in wnet_c.layers:
-        layer.trainable=False
-    
-    #Run input through both unets
-    wnet_c_1_out=wnet_c(input_1)
-    wnet_c_2_out=wnet_c(input_2)
-
-    depth_out=Flatten(name='depth_output')(wnet_c_1_out)
-    
-    wnet_c_1_out=Reshape((192,640,1))(wnet_c_1_out) #Depth at t
-    wnet_c_2_out=Reshape((192,640,1))(wnet_c_2_out) #Depth at t-1
-    
-    #Merge unet outputs
-    rbgd1=Concatenate()([input_1,wnet_c_1_out])
-    rbgd2=Concatenate()([input_2,wnet_c_2_out])
-    
-    both_rgbds=Concatenate()([rbgd1,rbgd2])
-    #Create transform branch for predicting rpy/xyz odom matrix/Networks for VO
-    # tf_cnn_t_1=cnn4(input_shape=(192,640,1))(wnet_c_1_out) #t
-    # tf_cnn_t_2=cnn4(input_shape=(192,640,1))(wnet_c_2_out) #t-1
-    cnn_both=cnn4(input_shape=(192,640,8))(both_rgbds)
-    
-    # flatten1=Flatten()(tf_cnn_t_1)
-    # flatten2=Flatten()(tf_cnn_t_2)
-    # dense_block1=DenseBlock(input_shape=(flatten1.shape[0],1))(flatten1)
-    # dense_block2=DenseBlock(input_shape=(flatten2.shape[0],1))(flatten2)
-    #dense_block=DenseBlock(input_shape=(cnn_both.shape[0],1))(cnn_both)
-
-    #Merge VO CNN ouputs
-    #merged2=Concatenate()([tf_cnn_t_1,tf_cnn_t_2])
-    #merged2=Concatenate()([dense_block1,dense_block2])
-    # flatten2=Flatten()(merged2)
-    # print(flatten2.shape[0])
-    # dense_block1=DenseBlock(input_shape=(flatten2.shape[0],1))(flatten2)
-    
-    #reshape=Reshape((2,tf_cnn_t_1.shape[1]))(merged2)
-    # reshape=Reshape((2,dense_block1.shape[1]))(merged2)
-    # lstm1=LSTM(128,return_sequences=True)(reshape) #128
-    # lstm2=LSTM(256,return_sequences=False)(lstm1) #256
-    
-    dense1=DenseBlock(input_shape=(cnn_both.shape[0],1))(cnn_both)
-    # dense2=Dense(512, activation=PReLU())(dense1)
-    # dense3=Dense(128, activation=PReLU())(dense2)
-    rpy_output=Dense(3,activation='linear',name='rpy_output')(dense1) #RPY
+    dense2=Dense(128,activation=PReLU())(flatten3)
+    rpy_output=Dense(3,activation='linear',name='rpy_output')(dense2) #RPY
  
-    dense4=DenseBlock(input_shape=(cnn_both.shape[0],1))(cnn_both)
-    # dense5=Dense(512, activation=PReLU())(dense4)
-    # dense6=Dense(128, activation=PReLU())(dense5)
+    dense4=Dense(128,activation=PReLU())(flatten3)
     xyz_output=Dense(3,activation='linear',name='xyz_output')(dense4) #XYZ
     
     #Define inputs and outputs    
-    model = Model(inputs=[input_1,input_2], outputs=[depth_out,rpy_output,xyz_output])
-    model.layers[2].trainable=False
+    model = Model(inputs=[rgb_input_1,rgb_input_2,d_input_1,d_input_2], 
+                  outputs=[rpy_output,xyz_output])
     
     return model
 
@@ -529,9 +470,9 @@ def mock_espvo_rgbd(input_shape=(192,640,3)):
     return model
 
 if __name__=='__main__':
-    model=mock_espvo_rgbd()
+    model=parallel_unets_with_tf()
     model.summary()
-    plot_model(model, to_file='mock_espvo_rgbd.png', 
+    plot_model(model, to_file='parallel_unets_with_tf.png', 
                 show_shapes=True, 
                 show_layer_names=False, 
                 rankdir='TB',  #LR or TB for vertical or horizontal

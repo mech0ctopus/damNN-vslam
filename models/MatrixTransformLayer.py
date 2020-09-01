@@ -96,21 +96,27 @@ def rpyxyz_from_matrix(matrix):
     #     matrix=matrix.reshape((3,4))
     #matrix=np.array(matrix)
     #print(matrix)
-    roll, pitch, yaw=euler_from_matrix(matrix, axes='sxyz')
-    x, y, z = translation_from_matrix(matrix)
-    return tf.constant([roll,pitch,yaw,x,y,z],dtype='float32')
+    roll, pitch, yaw=euler_from_matrix(matrix[0], axes='sxyz')
+    x, y, z = translation_from_matrix(matrix[0])
+    result=tf.Variable(np.array([roll,pitch,yaw,x,y,z]),
+                       dtype=tf.float64).read_value()
+    print(result)
+    return result #'float32')
 
-def rpyxyz_from_matrices(matrices,N=32):
+def rpyxyz_from_matrices(matrices,batch_size=32):
     '''Returns array of roll, pitch, yaw, x, y, z from Nx3x4 transform matrix.
     Angles in radians.'''
-    output=np.zeros((N,6))
+    # batch_size=matrices.shape[0]
+    output=np.zeros((batch_size,6))
+    # print(batch_size)
     for idx,matrix in enumerate(matrices):
+        # print(matrix)
         roll, pitch, yaw=euler_from_matrix(matrix, axes='sxyz')
         x, y, z = translation_from_matrix(matrix)
         output[idx,:]=np.array([roll,pitch,yaw,x,y,z],dtype='float32')
-    output=tf.constant(output,dtype='float32')
+    output=tf.Variable(output,dtype=tf.float64) #dtype='float32')
     #output=tf.convert_to_tensor(output,dtype='float32')
-    print(output)
+    #print(output)
     return output
 
 class SE3Layer(Layer):
@@ -124,16 +130,19 @@ class SE3Layer(Layer):
     def call(self, xin):
         """Tensorflow hook 
         Args:
-            xin (tensor): 12-element tensor
+            xin (tensor): 12-element tensor (3x4)
         Returns:
             RPYXYZ_vector : a 6-element tensor containing the results of SE3
         """
-        xout = tf.py_function(rpyxyz_from_matrices, 
+        print('xin shape: ',str(xin.get_shape()))
+        xout = tf.py_function(rpyxyz_from_matrix, 
                               [xin],
-                              'float32',
+                              tf.float64, #'float32',
                               name='SE3')
         #xout = K.stop_gradient(xout) # explicitly set no grad
-        xout.set_shape([None,6]) # explicitly set output shape
-        
+        #xout.set_shape([batch_size,6]) # explicitly set output shape
+        print('xout shape',xout.get_shape()) #prints <unknown>
+        xout.set_shape([1,6])
+        print('xout shape',xout.get_shape()) #prints (None,6)
         #return tf.reshape(xout, (-1,6))
         return xout

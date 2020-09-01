@@ -57,8 +57,8 @@ def _batchGenerator(X_filelist,y_filelist,batchSize):
                 # print('Train: '+f'{sequence_id}, {prev_sequence_id}')
                 # print('Train: '+f'{frame_id}, {prev_frame_id}')
                 
-                y_train_odom[i]=normalize(current_odom-prev_odom)
-                # y_train_odom[i]=current_odom-prev_odom
+                # y_train_odom[i]=normalize(current_odom-prev_odom)
+                y_train_odom[i]=current_odom-prev_odom
                 y_rpy[i]=y_train_odom[i][0:3]
                 y_xyz[i]=y_train_odom[i][3:6]
                 y_rpyxyz[i]=y_train_odom[i]
@@ -154,8 +154,8 @@ def _valBatchGenerator(X_val_filelist,y_val_filelist,batchSize):
                 prev_odom=read_odom(prev_sequence_id, prev_frame_id)
                 #print('Val: '+f'{frame_id}, {prev_frame_id}')
                 
-                y_val_odom[i]=normalize(current_odom-prev_odom)
-                # y_val_odom[i]=current_odom-prev_odom
+                # y_val_odom[i]=normalize(current_odom-prev_odom)
+                y_val_odom[i]=current_odom-prev_odom
                 y_val_rpy[i]=y_val_odom[i][0:3]
                 y_val_xyz[i]=y_val_odom[i][3:6]
                 y_val_rpyxyz[i]=y_val_odom[i]

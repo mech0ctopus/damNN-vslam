@@ -3,54 +3,58 @@
 Compare predicted vs. ground truth RPYXYZ on validation data.
 """
 from models import models
-from tensorflow.keras.optimizers import Adagrad, Adam
-from tensorflow.keras.models import load_model
-from utils.read_odom import read_odom, denormalize
-from utils.deep_utils import rgb_read
+from tensorflow.keras.optimizers import Adam
+from utils.read_odom import read_odom
+from utils.deep_utils import rgb_read, depth_read
 import numpy as np
 from glob import glob
 from os.path import basename
 import matplotlib.pyplot as plt
-from models.losses import deepvo_mse, undeepvo_rpy_mse, undeepvo_xyz_mse
+from models.losses import undeepvo_rpy_mse, undeepvo_xyz_mse
 
-# def load_model():
-#     '''Load pretrained model.'''
-#     #Load model
-#     model=models.mock_espvo()
-#     losses = {"rpy_output": undeepvo_rpy_mse,
-#               "xyz_output": undeepvo_xyz_mse}
-#     model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\20200824-180403_mock_espvo_weights_best.tf")
-#     model.compile(loss=losses,optimizer=Adam(0.001))
-#     return model
+def load_model():
+    '''Load pretrained model.'''
+    #Load model
+    model=models.parallel_unets_with_tf()
+    losses = {"rpy_output": undeepvo_rpy_mse,
+              "xyz_output": undeepvo_xyz_mse}
+    model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\20200830-201438_parallel_unets_with_tf_weights_best.hdf5")
+    model.compile(loss=losses,optimizer=Adam(0.001))
+    return model
 
-def normalize_image(image_path):
-    '''Normalize RGB image.'''
-    image=rgb_read(image_path)
-    image=image.reshape(1,192,640,3)
-    image=np.divide(image,255).astype(np.float16)
+def normalize_image(image_path,depth=False):
+    '''Normalize RGB or depth image.'''
+    if depth:
+        image=depth_read(image_path)
+        image=image.reshape(1,192,640,1)
+        image=np.divide(image,255).astype(np.float16)
+    else:
+        image=rgb_read(image_path)
+        image=image.reshape(1,192,640,3)
+        image=np.divide(image,255).astype(np.float16)
     return image
     
-def predict_odom(image1_path,image2_path,model):
+def predict_odom(image1_path,image2_path,image3_path,image4_path,model):
     '''Return predicted odom data.'''
     #Read test images
     image1=normalize_image(image1_path)
     image2=normalize_image(image2_path)
+    image3=normalize_image(image3_path,depth=True)
+    image4=normalize_image(image4_path,depth=True)
     #Predict relative odometry    
     # _,rpy_dt,xyz_dt=model.predict([image1,image2])
-    rpyxyz_dt=model.predict([image1,image2])
+    rpy_dt,xyz_dt=model.predict([image1,image2,image3,image4])
     # rpyxyz_dt=model.predict(image1)
     #Denormalize
-    # odom_dt=denormalize(odom_dt.reshape(6))
-    # odom_dt=np.array((rpy_dt,xyz_dt))
-    odom_dt=np.array(rpyxyz_dt)
-    #Denormalize
-    odom_dt=odom_dt.reshape(6)
-    return odom_dt
+    rpyxyz_dt=np.array((rpy_dt,xyz_dt))
+    # rpyxyz_dt=denormalize(rpyxyz_dt.reshape(6))
+    rpyxyz_dt=rpyxyz_dt.reshape(6)
+    return rpyxyz_dt
 
 def parse_path(image_path):
     '''Get sequence ID and frame # from image path'''
     base=basename(image_path)
-    filename=base.split('_flow.')[0]
+    filename=base.split('.')[0]
     sequence_id, frame = filename.split('_sync_')
     frame=int(frame)
     return sequence_id, frame
@@ -69,14 +73,16 @@ def get_actual_odom(image1_path,image2_path):
 
 def build_results(model, val_path):
     image_list=glob(val_path+'*.png')
+    depth_image_list=glob(r'C:\Users\craig\Documents\GitHub\damNN-vslam\data\val\y\\'+'*.png')
     idx=1
     # predicted_results=np.zeros((len(image_list),6),dtype=np.float64)
     # actual_results=np.zeros((len(image_list),6),dtype=np.float64)
-    predicted_results=np.zeros((15,6),dtype=np.float64)
-    actual_results=np.zeros((15,6),dtype=np.float64)
-    while idx<16:
+    predicted_results=np.zeros((1000,6),dtype=np.float64)
+    actual_results=np.zeros((1000,6),dtype=np.float64)
+    while idx<=1000:
         image1, image2 = image_list[idx], image_list[idx-1]
-        predicted_results[idx-1]=predict_odom(image1,image2,model)
+        image3, image4=depth_image_list[idx], depth_image_list[idx-1]
+        predicted_results[idx-1]=predict_odom(image1,image2,image3,image4,model)
         actual_results[idx-1]=get_actual_odom(image1,image2)
         print('Computed: ' + str(idx) +'/'+str(len(image_list)))
         idx+=1
@@ -176,11 +182,10 @@ def adjust_and_scale(actual_results,predicted_results):
     return adj_scaled_predicted_results, adj_scaled_actual_results
 
 if __name__=='__main__':
-    # model=load_model()
-    model=load_model(r"C:\Users\craig\Documents\GitHub\damNN-vslam\20200824-180403_mock_espvo_weights_best")
-    val_path=r"data\val\X\\"
+    model=load_model()
+    val_path=r"data\train\X\\"
     predicted_results, actual_results=build_results(model, val_path)
-    plot_results(predicted_results[0:500],actual_results[0:500])
+    plot_results(predicted_results,actual_results)
     save_results=False
     
     # plot_overhead(predicted_results,actual_results)
@@ -191,7 +196,7 @@ if __name__=='__main__':
     plot_results(adj_predicted_results,actual_results)
     
     # Adjust predicted data based on scale
-    scaled_predicted_results,scaled_actual_results=scale_match_results(actual_results[0:500], predicted_results[0:500])
+    scaled_predicted_results,scaled_actual_results=scale_match_results(actual_results, predicted_results)
     plot_results(scaled_predicted_results,scaled_actual_results)
     plot_3d_path(scaled_predicted_results,scaled_actual_results)
     

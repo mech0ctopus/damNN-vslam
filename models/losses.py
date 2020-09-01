@@ -5,8 +5,12 @@ Loss Functions
 import tensorflow.keras.backend as K
 import tensorflow as tf
 
+def root_mean_squared_error(y_true, y_pred): 
+    return K.sqrt(K.mean(K.square(y_pred - y_true))) 
+
 def deepvo_mse(yTrue, yPred, scale_factor=100):
-    '''Define loss function per DeepVO paper.'''   
+    '''Define loss function per DeepVO paper.'''
+    print('In Deepvo_MSE loss')
     rpyTrue=yTrue[:,0:3]
     xyzTrue=yTrue[:,3:6]
     rpyPred=yPred[:,0:3]
@@ -26,7 +30,6 @@ def undeepvo_rpy_mse(yTrue, yPred, scale_factor=100):
 
 def undeepvo_xyz_mse(yTrue, yPred):
     '''Define loss function per DeepVO paper.'''   
-    #scale_factor is a variable called 'K' in DeepVO paper
     xyz_loss=K.square(yPred - yTrue)
     return K.mean(xyz_loss)
 
