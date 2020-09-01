@@ -3,8 +3,8 @@
 from glob import glob
 from utils.deep_utils import rgb_read
 from models import models
-from models.rgbd_vo_generators import _batchGenerator, _valBatchGenerator
-# from models.rgbd_vo_with_odom_generators import _batchGenerator, _valBatchGenerator
+# from models.rgbd_vo_generators import _batchGenerator, _valBatchGenerator
+from models.rgbd_vo_with_odom_generators import _batchGenerator, _valBatchGenerator
 # from models.vo_generators import _batchGenerator, _valBatchGenerator
 from models.losses import undeepvo_rpy_mse, undeepvo_xyz_mse, deepvo_mse
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
@@ -48,15 +48,18 @@ def main(model_name, model, num_epochs, batch_size):
     model.compile(loss=losses,optimizer=Adam(1e-5))
     
     #Save best model weights checkpoint
-    filepath=f"{model_name}_weights_best.hdf5"
+    filepath=f"{model_name}_weights_bestvalloss.hdf5"
     checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
+                                 save_best_only=True, mode='min')
+    filepath=f"{model_name}_weights_bestloss.hdf5"
+    checkpoint2 = ModelCheckpoint(filepath, monitor='loss', verbose=1, 
                                  save_best_only=True, mode='min')
     
     #Tensorboard setup
     log_dir = f"logs\\{model_name}\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")        
     tensorboard_callback = TensorBoard(log_dir=log_dir, write_images=True)
     
-    callbacks_list = [checkpoint, tensorboard_callback] #checkpoint2
+    callbacks_list = [checkpoint, checkpoint2, tensorboard_callback]
     
     model.fit_generator(_batchGenerator(X_filelist,y_filelist,batch_size),
                         epochs=num_epochs,
@@ -71,10 +74,11 @@ def main(model_name, model, num_epochs, batch_size):
     return model
     
 if __name__=='__main__':
-    model=models.parallel_unets_with_tf
-    model_name='parallel_unets_with_tf'
+    model=models.parallel_unets_with_odom
+    model_name='parallel_unets_with_odom'
     model=main(model_name=model_name,model=model,
-               num_epochs=75,batch_size=8)
+               num_epochs=1,batch_size=8)
+    model.save_weights(model_name+'_lastweights.hdf5')
     # show_test_image=True
     
     # if show_test_image:
