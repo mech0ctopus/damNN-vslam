@@ -202,6 +202,48 @@ def parallel_unets_with_tf(input_shape=(192,640,3)):
     
     return model
 
+def parallel_unets_with_odom(input_shape=(192,640,3)):
+    '''Define Parallel U-Nets model.'''
+    #Define inputs
+    rgb_input_1=Input(input_shape,name='input1') #RGB Image at time=t
+    rgb_input_2=Input(input_shape,name='input2') #RGB Image at time=(t-1)
+    d_input_1=Input((192,640,1),name='input3') #Depth Image at time=t
+    d_input_2=Input((192,640,1),name='input4') #Depth Image at time=(t-1)
+    prev_odom_input=Input((6),name='input5') #Odom between time=(t-1) and (t-2)
+    d1_reshape=Reshape((192,640,1))(d_input_1)
+    d2_reshape=Reshape((192,640,1))(d_input_2)
+        
+    #Build RGBD
+    rgbd1=Concatenate()([rgb_input_1,d1_reshape]) #RGBD Image at time=t
+    rgbd2=Concatenate()([rgb_input_2,d2_reshape]) #RGBD Image at time=t-1
+    
+    cnn1=cnn4()(rgbd1)
+    cnn2=cnn4()(rgbd2)
+    flatten1=Flatten()(cnn1)
+    flatten2=Flatten()(cnn2)
+    
+    flatten1_with_odom=Concatenate()([flatten1,prev_odom_input])
+    flatten2_with_odom=Concatenate()([flatten2,prev_odom_input])
+    
+    dense_block1=DenseBlock(input_shape=(flatten1_with_odom.shape[0],1))(flatten1_with_odom)
+    dense_block2=DenseBlock(input_shape=(flatten2_with_odom.shape[0],1))(flatten2_with_odom)
+    
+    merged=Concatenate()([dense_block1,dense_block2])
+    flatten3=Flatten()(merged)
+    
+    dense2=Dense(128,activation=PReLU())(flatten3)
+    rpy_output=Dense(3,activation='linear',name='rpy_output')(dense2) #RPY
+ 
+    dense4=Dense(128,activation=PReLU())(flatten3)
+    xyz_output=Dense(3,activation='linear',name='xyz_output')(dense4) #XYZ
+    
+    #Define inputs and outputs    
+    model = Model(inputs=[rgb_input_1,rgb_input_2,d_input_1,d_input_2,
+                          prev_odom_input], 
+                  outputs=[rpy_output,xyz_output])
+    
+    return model
+
 def mock_deepvo(input_shape=(192,640,3)):
     '''Replicate DeepVO model.'''
     #Define input size
@@ -470,9 +512,9 @@ def mock_espvo_rgbd(input_shape=(192,640,3)):
     return model
 
 if __name__=='__main__':
-    model=parallel_unets_with_tf()
+    model=parallel_unets_with_odom()
     model.summary()
-    plot_model(model, to_file='parallel_unets_with_tf.png', 
+    plot_model(model, to_file='parallel_unets_with_odom.png', 
                 show_shapes=True, 
                 show_layer_names=False, 
                 rankdir='TB',  #LR or TB for vertical or horizontal
