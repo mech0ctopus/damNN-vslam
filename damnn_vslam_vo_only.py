@@ -4,6 +4,7 @@ from glob import glob
 from utils.deep_utils import rgb_read
 from models import models
 from models.rgbd_vo_generators import _batchGenerator, _valBatchGenerator
+# from models.rgbd_vo_with_odom_generators import _batchGenerator, _valBatchGenerator
 # from models.vo_generators import _batchGenerator, _valBatchGenerator
 from models.losses import undeepvo_rpy_mse, undeepvo_xyz_mse, deepvo_mse
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
@@ -73,7 +74,7 @@ if __name__=='__main__':
     model=models.parallel_unets_with_tf
     model_name='parallel_unets_with_tf'
     model=main(model_name=model_name,model=model,
-               num_epochs=100,batch_size=8)
+               num_epochs=75,batch_size=8)
     # show_test_image=True
     
     # if show_test_image:
