@@ -10,15 +10,15 @@ import numpy as np
 from glob import glob
 from os.path import basename
 import matplotlib.pyplot as plt
-from models.losses import undeepvo_rpy_mse, undeepvo_xyz_mse
+from models.losses import undeepvo_rpy_mse, undeepvo_xyz_mse, root_mean_squared_error
 
 def load_model():
     '''Load pretrained model.'''
     #Load model
     model=models.parallel_unets_with_tf()
-    losses = {"rpy_output": undeepvo_rpy_mse,
-              "xyz_output": undeepvo_xyz_mse}
-    model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\20200830-201438_parallel_unets_with_tf_weights_best.hdf5")
+    losses = {"rpy_output": root_mean_squared_error,
+              "xyz_output": root_mean_squared_error}
+    model.load_weights(r"C:\Users\craig\Documents\GitHub\damNN-vslam\parallel_unets_with_tf_weights_best.hdf5")
     model.compile(loss=losses,optimizer=Adam(0.001))
     return model
 
@@ -72,14 +72,14 @@ def get_actual_odom(image1_path,image2_path):
     return odom_dt_actual
 
 def build_results(model, val_path):
-    image_list=glob(val_path+'*.png')
-    depth_image_list=glob(r'C:\Users\craig\Documents\GitHub\damNN-vslam\data\val\y\\'+'*.png')
+    image_list=glob(val_path+'X\\'+'*.png')
+    depth_image_list=glob(val_path+'y\\'+'*.png')
     idx=1
     # predicted_results=np.zeros((len(image_list),6),dtype=np.float64)
     # actual_results=np.zeros((len(image_list),6),dtype=np.float64)
-    predicted_results=np.zeros((1000,6),dtype=np.float64)
-    actual_results=np.zeros((1000,6),dtype=np.float64)
-    while idx<=1000:
+    predicted_results=np.zeros((500,6),dtype=np.float64)
+    actual_results=np.zeros((500,6),dtype=np.float64)
+    while idx<=500:
         image1, image2 = image_list[idx], image_list[idx-1]
         image3, image4=depth_image_list[idx], depth_image_list[idx-1]
         predicted_results[idx-1]=predict_odom(image1,image2,image3,image4,model)
@@ -183,17 +183,17 @@ def adjust_and_scale(actual_results,predicted_results):
 
 if __name__=='__main__':
     model=load_model()
-    val_path=r"data\train\X\\"
+    val_path=r"data\train\\"
     predicted_results, actual_results=build_results(model, val_path)
     plot_results(predicted_results,actual_results)
     save_results=False
     
     # plot_overhead(predicted_results,actual_results)
-    plot_3d_path(predicted_results,actual_results)
+    # plot_3d_path(predicted_results,actual_results)
 
-    # Plot mean-adjusted results    
-    adj_predicted_results=mean_adjust_results(actual_results,predicted_results)
-    plot_results(adj_predicted_results,actual_results)
+    # # Plot mean-adjusted results    
+    # adj_predicted_results=mean_adjust_results(actual_results,predicted_results)
+    # plot_results(adj_predicted_results,actual_results)
     
     # Adjust predicted data based on scale
     scaled_predicted_results,scaled_actual_results=scale_match_results(actual_results, predicted_results)
