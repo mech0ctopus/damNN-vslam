@@ -33,7 +33,7 @@ def read_odom(sequence_id,desired_frame,first_frame=0):
     global odom_ids
     global frame_ids
     
-    folderpath=r"C:\Users\craig\Documents\GitHub\damNN-vslam\raw_data_odometry\poses\\"
+    folderpath=r"/work/cdmiller/raw_data_odometry/poses/"
     odom_id=odom_ids[sequence_id]
     filepath=folderpath+odom_id+'.txt'
     
@@ -66,7 +66,11 @@ def read_odom(sequence_id,desired_frame,first_frame=0):
     #Get roll, pitch yaw from rotation matrix
     #https://www.learnopencv.com/rotation-matrix-to-euler-angles/
     roll, pitch, yaw = rotationMatrixToEulerAngles(R)
-        
+    
+    roll = np.degrees(roll)
+    pitch = np.degrees(pitch)
+    yaw = np.degrees(yaw)
+    
     #Set result
     current_data=np.array([roll, pitch, yaw, tx, ty, tz],dtype=np.float64)
     
